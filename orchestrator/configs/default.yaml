@@ -1,0 +1,54 @@
+# DeskCar orchestrator default config.
+# Tweak me, then run: python -m deskcar_orch -c configs/default.yaml
+
+camera:
+  device: 0
+  width: 1280
+  height: 720
+  fps: 30
+  flip_vertical: false
+
+vision:
+  aruco_dict: DICT_4X4_50         # car-top marker
+  car_marker_id: 0
+  car_marker_size_mm: 32.0
+  dock_tag_family: tag36h11       # charging-dock AprilTag
+  dock_tag_id: 0
+  dock_tag_size_mm: 60.0
+  obstacle_min_area_px: 1500
+  obstacle_history: 8
+
+servo:
+  kp_linear: 0.8
+  kp_angular: 2.5
+  max_linear_mps: 0.30
+  max_angular_rps: 1.6
+  goal_tolerance_m: 0.05
+  goal_tolerance_rad: 0.20
+  loop_hz: 30.0
+
+charger:
+  seek_max_seconds: 90.0
+  align_tolerance_m: 0.06
+  couple_timeout_s: 30.0
+  full_current_ma: 50.0
+  # AprilTag is on a side board, NOT on the pad; see docs/HARDWARE.md.
+  # Offset from tag centre to pad centre in the tag's body frame.
+  dock_pad_offset_m: [0.04, 0.0]
+  # How far back from the pad face the car stops, in metres.
+  dock_pad_stand_off_m: 0.08
+
+  # Auto-dock trigger threshold (% SoC).
+  dock_soc_threshold: 20.0
+  # Final creep forward until coil couples (m/s).
+  couple_linear_mps: 0.06
+  # Debounce time before trusting the charge signal (s).
+  couple_settle_s: 2.0
+  # Back-up distance after a user undock (m).
+  undock_distance_m: 0.20
+  undock_linear_mps: 0.10
+  undock_timeout_s: 3.0
+
+car_host: 192.168.4.1
+desk_size_m: [1.4, 0.8]
+log_level: INFO

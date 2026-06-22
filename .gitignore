@@ -1,0 +1,45 @@
+ # Python
+ __pycache__/
+ *.py[cod]
+ *$py.class
+ *.so
+ .pytest_cache/
+ .mypy_cache/
+ .ruff_cache/
+ .venv/
+ venv/
+ env/
+ .env
+ *.egg-info/
+ dist/
+ build/
+ .coverage
+ htmlcov/
+
+ # PlatformIO / Arduino
+ .pio/
+ .vscode/.browse.VC.db*
+ firmware/.pio/
+ firmware/src/*.ino
+
+ # IDE
+ .idea/
+ .vscode/
+ *.swp
+ *.swo
+ *~
+ .DS_Store
+ Thumbs.db
+
+ # Build artifacts
+ *.bin
+ *.elf
+ *.hex
+ *.uf2
+
+# Calibration
+orchestrator/deskcar_orch/calib/*.npy
+
+ # Logs
+ *.log
+ logs/

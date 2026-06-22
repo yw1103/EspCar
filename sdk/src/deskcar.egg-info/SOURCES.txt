@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+src/deskcar/__init__.py
+src/deskcar/chassis.py
+src/deskcar/discovery.py
+src/deskcar/exceptions.py
+src/deskcar/py.typed
+src/deskcar/transport.py
+src/deskcar/types.py
+src/deskcar.egg-info/PKG-INFO
+src/deskcar.egg-info/SOURCES.txt
+src/deskcar.egg-info/dependency_links.txt
+src/deskcar.egg-info/requires.txt
+src/deskcar.egg-info/top_level.txt
+tests/test_chassis.py
+tests/test_types.py
+tests/test_wire_shape.py

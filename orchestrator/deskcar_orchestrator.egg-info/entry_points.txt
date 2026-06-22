@@ -1,0 +1,2 @@
+[console_scripts]
+deskcar-orchestrator = deskcar_orch.__main__:main
