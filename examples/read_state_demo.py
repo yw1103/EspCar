@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import logging
 import sys
 
@@ -36,6 +37,8 @@ async def _run(host: str | None, drive_seconds: float) -> int:
 
     print(f"connecting to {car.info.base_url}")
     await car.connect()
+    # Must drain WS frames while connected; see Chassis.start_event_drain().
+    drain_task = car.start_event_drain()
     try:
         snap: StateSnapshot = await car.read_state()
         print("--- first state frame ---")
@@ -47,14 +50,18 @@ async def _run(host: str | None, drive_seconds: float) -> int:
         print(f"  expansion: {[d.address for d in snap.exp]}")
 
         if drive_seconds > 0:
-            print(f"--- driving forward for {drive_seconds:.1f} s ---")
-            await car.drive(left=150, right=150)
+            pwm = min(200, snap.speed or 200)
+            print(f"--- driving forward for {drive_seconds:.1f} s at PWM {pwm} ---")
+            await car.drive(left=pwm, right=pwm)
             try:
                 await asyncio.sleep(drive_seconds)
             finally:
                 await car.stop()
             print("stopped")
     finally:
+        drain_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await drain_task
         await car.close()
     return 0
 

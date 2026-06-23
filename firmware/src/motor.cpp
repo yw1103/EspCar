@@ -13,6 +13,8 @@
 
  static int g_current_left  = 0;
  static int g_current_right = 0;
+ static int g_target_left   = 0;
+ static int g_target_right  = 0;
 
  void motor_setup() {
      // Configure all 4 channels with the same timer settings.
@@ -52,12 +54,13 @@
  }
 
  void motor_drive(int left_speed, int right_speed) {
-     left_speed  = constrain(left_speed,  -PWM_MAX, PWM_MAX);
-     right_speed = constrain(right_speed, -PWM_MAX, PWM_MAX);
+     g_target_left  = constrain(left_speed,  -PWM_MAX, PWM_MAX);
+     g_target_right = constrain(right_speed, -PWM_MAX, PWM_MAX);
+ }
 
-     g_current_left  = ramp_clamp(g_current_left,  left_speed);
-     g_current_right = ramp_clamp(g_current_right, right_speed);
-
+ void motor_tick() {
+     g_current_left  = ramp_clamp(g_current_left,  g_target_left);
+     g_current_right = ramp_clamp(g_current_right, g_target_right);
      drive_wheel(LEDC_CH_LEFT_1,  LEDC_CH_LEFT_2,  g_current_left);
      drive_wheel(LEDC_CH_RIGHT_1, LEDC_CH_RIGHT_2, g_current_right);
  }
@@ -71,6 +74,8 @@
      ledcWrite(LEDC_CH_RIGHT_2, 0);
      g_current_left  = 0;
      g_current_right = 0;
+     g_target_left   = 0;
+     g_target_right  = 0;
  }
 
  } // namespace deskcar

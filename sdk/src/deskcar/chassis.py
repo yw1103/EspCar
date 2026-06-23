@@ -17,6 +17,7 @@ A :class:`Chassis` may also be used without ``async with`` by calling
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -77,6 +78,19 @@ class Chassis:
 
     async def close(self) -> None:
         await self._transport.close()
+
+    def start_event_drain(self) -> asyncio.Task[None]:
+        """Discard inbound WS frames in the background.
+
+        Call this when you send commands but do not consume :meth:`events`.
+        Otherwise the car broadcasts state at 5 Hz and the TCP window can fill,
+        blocking the firmware loop and starving motor updates.
+        """
+        async def _drain() -> None:
+            async for _ in self.events():
+                pass
+
+        return asyncio.create_task(_drain())
 
     # ---- reactive control -------------------------------------------------
 

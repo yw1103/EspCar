@@ -54,6 +54,7 @@
 
  uint32_t g_last_state_ms = 0;
  void loop() {
+     motor_tick();
      g_ws.cleanupClients();
      uint32_t now = millis();
      if (now - g_last_state_ms > 200) {  // 5 Hz state broadcast

@@ -94,6 +94,7 @@
              case 'S': motor_stop(); break;
              default:  req->send(400); return;
          }
+         Serial.printf("[control] dir=%c cap=%d\n", d, g_speed_cap);
          req->send(200, "text/plain", "ok");
      });
      http.on("/speed", HTTP_GET, [](AsyncWebServerRequest* req) {

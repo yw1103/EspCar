@@ -1,5 +1,7 @@
-adafruit/Adafruit INA219@^1.2.0
-wire
 bblanchon/ArduinoJson@^7.0.4
-mathieucarbou/AsyncTCP@^3.3.2
-me-no-dev/ESPAsyncWebServer@^1.2.3
+ESP32Async/ESPAsyncWebServer@^3.6.0
+-DCORE_DEBUG_LEVEL=3
+build_flags =
+-std=gnu++17
+adafruit/Adafruit INA219@^1.2.0
+ESP32Async/AsyncTCP@^3.4.0

@@ -23,6 +23,7 @@ deskcar_orchestrator.egg-info/dependency_links.txt
 deskcar_orchestrator.egg-info/entry_points.txt
 deskcar_orchestrator.egg-info/requires.txt
 deskcar_orchestrator.egg-info/top_level.txt
+tests/test_auto_recharge.py
 tests/test_charge_sm.py
 tests/test_config.py
 tests/test_geometry.py
