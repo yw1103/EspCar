@@ -1,51 +1,49 @@
-# DeskCar
+# DeskCar 桌面级两轮智能小车
 
-ESP32 two-wheel desktop smart chassis. v1 was a Wi-Fi controlled toy; v2
-adds a USB-camera vision loop, Qi wireless charging, a 5-pin magnetic
-expansion port, and a typed Python SDK for the host PC.
+v1 是 Wi-Fi 遥控玩具车；v2 新增 USB 摄像头视觉闭环、Qi 无线充电、5 针磁吸扩展口，以及主机端带类型注解的 Python SDK。
 
-## What's in the box
+## 项目内容
 
-| Path                | Role                                                 |
-| :------------------ | :--------------------------------------------------- |
-| `firmware/`         | ESP32 Arduino / PlatformIO firmware (compiles)       |
-| `sdk/`              | `deskcar` Python SDK (async, typed, pip-installable) |
-| `orchestrator/`     | PC-side vision + auto-dock + obstacle avoidance      |
-| `hardware/`         | KiCad schematics, PCB, BOM, mechanical drawings      |
-| `docs/`             | Protocol, SDK reference, calibration, hardware notes |
-| `examples/`         | Runnable demos                                       |
+| 目录 | 作用 |
+| :--- | :--- |
+| `firmware/`     | ESP32 Arduino / PlatformIO 固件（可直接构建） |
+| `sdk/`          | `deskcar` Python SDK（异步、带类型、可 `pip install`） |
+| `orchestrator/` | 主机端视觉 + 自动回冲 + 避障 |
+| `hardware/`     | KiCad 原理图、PCB、BOM、机械图 |
+| `docs/`         | 通信协议、SDK 参考、标定说明、硬件笔记 |
+| `examples/`     | 可直接跑的示例脚本 |
 
-## Quick start
+## 快速上手
 
 ```bash
-# 1. install the SDK
+# 1. 安装 SDK
 pip install -e ./sdk
 
-# 2. flash the firmware (one-shot)
+# 2. 烧录固件（一次性）
 pio run -d firmware -t upload
 
-# 3. drive the car from Python
+# 3. 用 Python 驱动小车
 python examples/read_state_demo.py
 ```
 
-The car creates an open AP `ESP32_Car_Control` on first boot. Connect
-your laptop to that SSID, then run the examples (default host
-`192.168.4.1`).
+小车首次上电会创建名为 `ESP32_Car_Control` 的开放热点。电脑连上这个 SSID 之后，再运行示例（默认主机地址 `192.168.4.1`）。
 
-## Key decisions (locked)
+## 已锁定的设计决策
 
-- vision runs on the host PC over a USB camera
-- charging is Qi 5W inductive (1S Li-ion 1000 mAh on the car)
-- expansion port is 5-pin pogo (3.3V / GND / SDA / SCL / INT) + 4 x N52 magnets
-- localization: car-top ArUco + dock AprilTag (dual source)
-- SDK: Python-first, typed, public protocol documented in `docs/PROTOCOL.md`
+- 视觉由主机 PC 通过 USB 摄像头完成
+- 充电：Qi 5W 无线充电（车端 1S 锂电 1000 mAh）
+- 扩展口：5 针 pogo（3.3V / GND / SDA / SCL / INT）+ 4 颗 N52 磁铁
+- 定位：车顶 ArUco + 充电坞 AprilTag（双源）
+- SDK：Python 优先、带类型注解，协议见 `docs/PROTOCOL.md`
 
-Full plan and trade-offs in [PROJECT_PLAN.md](PROJECT_PLAN.md).
-## Auto-dock
+完整规划与权衡见 [PROJECT_PLAN.md](PROJECT_PLAN.md)。
 
-To make the car self-dock, see [orchestrator/README.md](orchestrator/README.md)
-and the [hardware](docs/HARDWARE.md) / [calibration](docs/CALIBRATION.md) guides.
+## 自动回冲
 
-## License
+要启用自动回冲，请看 [orchestrator/README.md](orchestrator/README.md)、
+[硬件说明](docs/HARDWARE.md) 与 [标定说明](docs/CALIBRATION.md)。
+一步步的实操流程见 [docs/实操说明.md](docs/实操说明.md)。
+
+## 许可证
 
 MIT

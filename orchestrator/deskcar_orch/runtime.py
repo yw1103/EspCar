@@ -84,6 +84,8 @@ class Orchestrator:
         *,
         camera: FrameSource | None = None,
         force_dock: bool = False,
+        tracker: "ArUcoTracker | _StubTracker | None" = None,
+        dock_det: "AprilTagDockDetector | _StubDockDetector | None" = None,
     ) -> None:
         self._cfg = cfg
         self._force_dock = force_dock
@@ -97,13 +99,15 @@ class Orchestrator:
         )
         self._sm = ChargeMachine()
         self._homography = _load_homography_or_identity()
-        self._tracker = ArUcoTracker(
+        # Allow tests to inject deterministic stub detectors without
+        # pulling OpenCV / drawing synthetic ArUco markers.
+        self._tracker = tracker or ArUcoTracker(
             self._homography,
             marker_id=cfg.vision.car_marker_id,
             dictionary=cfg.vision.aruco_dict,
             marker_size_mm=cfg.vision.car_marker_size_mm,
         )
-        self._dock_det = AprilTagDockDetector(
+        self._dock_det = dock_det or AprilTagDockDetector(
             self._homography,
             tag_id=cfg.vision.dock_tag_id,
             tag_size_mm=cfg.vision.dock_tag_size_mm,

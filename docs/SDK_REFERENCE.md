@@ -1,20 +1,18 @@
-# deskcar SDK Reference
+# deskcar SDK 参考手册
 
-Complete reference for every public symbol in `deskcar`.
-Generated against `sdk/src/deskcar/__init__.py` and
-`sdk/tests/test_wire_shape.py` (which is the ground truth for what the
-firmware actually emits).
+`deskcar` 全部公开符号的完整参考。基于 `sdk/src/deskcar/__init__.py` 和
+`sdk/tests/test_wire_shape.py`（后者是固件实际发出什么的真相来源）生成。
 
-## Top-level
+## 顶层导出
 
 ```python
 from deskcar import (
-    Chassis,            # high-level client
-    ChassisInfo,        # discovery result
-    StateSnapshot,      # parsed state frame
-    ExpansionDevice,    # one I2C device on the magnetic port
-    ChargeState,        # enum: idle / detected / charging / full / fault
-    DeskCarError,       # base exception
+    Chassis,            # 高级客户端
+    ChassisInfo,        # 发现结果
+    StateSnapshot,      # 解析后的 state 帧
+    ExpansionDevice,    # 磁吸扩展口上的一个 I2C 设备
+    ChargeState,        # 枚举：idle / detected / charging / full / fault
+    DeskCarError,       # 基础异常
     DeskCarTimeoutError,
     NotConnectedError,
     ProtocolError,
@@ -26,83 +24,77 @@ from deskcar import (
 
 ## `Chassis`
 
-Async, typed high-level client.  Use as a context manager or call
-`connect()` / `close()` explicitly.
+异步、带类型的高级客户端。可以当 async context manager 用，也可以自己
+显式调 `connect()` / `close()`。
 
 ```python
 async with await Chassis.discover_first() as car:
     await car.drive(120, 120)
 ```
 
-### Constructors
+### 构造方法
 
 #### `Chassis.discover(timeout=2.0) -> list[Chassis]`
 
-Broadcasts a UDP discovery packet and returns one `Chassis` per car
-heard before the deadline.
+广播一条 UDP 发现包，返回截止时间内听到的所有 `Chassis`。
 
 #### `Chassis.discover_first(timeout=2.0) -> Chassis`
 
-Same, but returns the first car heard.  Raises `DeskCarTimeoutError`
-on timeout.
+同上，但只返回第一台；超时则抛 `DeskCarTimeoutError`。
 
 #### `Chassis.from_host(host: str, *, port: int = 80) -> Chassis`
 
-Skip discovery and talk to a known IP.  Useful in CI / on a wired
-desk.
+跳过发现阶段，直接连已知 IP。在 CI 或者固定布线桌面上用很方便。
 
-### Lifecycle
+### 生命周期
 
-| Method | Notes |
+| 方法 | 备注 |
 | :--- | :--- |
-| `await car.connect()` | opens the WS + HTTP sessions |
-| `await car.close()` | tears them down; safe to call twice |
-| `async with await Chassis.discover_first() as car: ...` | shorthand |
-| `car.info` | the `ChassisInfo` this instance is bound to |
+| `await car.connect()` | 打开 WS + HTTP 会话 |
+| `await car.close()`   | 关闭；调两次也安全 |
+| `async with await Chassis.discover_first() as car: ...` | 一行的简写 |
+| `car.info` | 当前绑定的 `ChassisInfo` |
 
-### Reactive control
+### 响应式控制
 
-| Method | Effect | Wire command |
+| 方法 | 作用 | 线协议 |
 | :--- | :--- | :--- |
-| `await car.drive(left: int, right: int)` | per-wheel PWM -255..255 | `{"type":"drive","left":..,"right":..}` |
-| `await car.stop()` | hard stop (uses `ledcWrite(0)`) | `{"type":"stop"}` |
-| `await car.set_speed_cap(value: int)` | global PWM cap 0..255 | `{"type":"set_speed","value":..}` |
+| `await car.drive(left: int, right: int)` | 每轮 PWM，-255..255 | `{"type":"drive","left":..,"right":..}` |
+| `await car.stop()`                    | 硬刹车（用 `ledcWrite(0)`） | `{"type":"stop"}` |
+| `await car.set_speed_cap(value: int)` | 全局 PWM 上限 0..255        | `{"type":"set_speed","value":..}` |
 
-`drive` does **not** block; it is one WS frame.  If you need to keep
-the motors on, send a `drive` at least every 200 ms — that is the
-firmware’s `loop()` cadence for state broadcasts, after which a
-`stop` is implicitly applied if the WS is lost.
+`drive` **不**会阻塞——它就是一条 WS 帧。如果你要让电机一直转，最多每
+200 ms 发一次 `drive`；这是固件 `loop()` 广播 state 的频率，超过这个
+间隔 WS 一旦断开就会隐式发 `stop`。
 
-### Introspection
+### 自省
 
-| Method | Effect |
+| 方法 | 作用 |
 | :--- | :--- |
-| `await car.scan_expansion() -> list[ExpansionDevice]` | forces a fresh I2C scan, returns the device list |
-| `await car.read_state() -> StateSnapshot` | one-shot telemetry frame via HTTP |
-| `car.feed(payload)` | test hook: inject a wire frame into the inbound queue |
+| `await car.scan_expansion() -> list[ExpansionDevice]` | 强制做一次 I2C 扫描，返回设备列表 |
+| `await car.read_state() -> StateSnapshot` | 一次性读取遥测帧（走 HTTP） |
+| `car.feed(payload)` | 测试钩子：把一帧原始数据塞进接收队列 |
 
-### Event stream
+### 事件流
 
 ```python
 async for ev in car.events():
     if isinstance(ev, StateSnapshot):
-        ...   # typed access
+        ...   # 类型化访问
     else:
-        ...   # raw dict: device_attached, error, encoder, ...
+        ...   # 原始 dict：device_attached / error / encoder 等
 ```
 
-`events()` is an async iterator that yields forever.  Cancel-safe: if
-the WS drops, the iterator returns and the next `connect()` opens a
-fresh stream.
+`events()` 是一个永不结束的异步迭代器，可安全取消：WS 断了之后迭代结束，
+下一次 `connect()` 会开新的流。
 
-The SDK does **not** block on partial frames; the underlying transport
-reassembles WS messages for you.
+SDK **不**做半帧阻塞；底层 transport 会自己拼 WS 消息。
 
 ---
 
 ## `ChassisInfo`
 
-Frozen pydantic model returned by discovery.
+发现阶段返回的不可变 pydantic 模型。
 
 ```python
 info = ChassisInfo(host="192.168.4.1", port=80, name="deskcar-7c9e")
@@ -110,37 +102,37 @@ info.base_url   # "http://192.168.4.1:80"
 info.ws_url     # "ws://192.168.4.1:80/api/v1/stream"
 ```
 
-| Field | Type | Description |
+| 字段 | 类型 | 含义 |
 | :--- | :--- | :--- |
-| `host` | str | IP address |
-| `port` | int | TCP port (default 80) |
-| `name` | str \| None | human-readable label from the advertisement |
-| `mac` | str \| None | car MAC (if advertised) |
-| `firmware_version` | int \| None | protocol version, see `firmware/include/protocol.h` |
+| `host` | str | IP 地址 |
+| `port` | int | TCP 端口，默认 80 |
+| `name` | str \| None | 宣告里的人可读名字 |
+| `mac` | str \| None | 小车 MAC（如果宣告里有） |
+| `firmware_version` | int \| None | 协议版本，见 `firmware/include/protocol.h` |
 
 ---
 
 ## `StateSnapshot`
 
-The shape that comes back from `read_state()` and from every WS
-`state` event.  All fields except `type`, `ts`, `charge` are optional,
-so a snapshot from a brand-new car (no INA219 yet) still parses.
+`read_state()` 和每一次 WS 的 `state` 事件解析完都是这个形状。除了
+`type`、`ts`、`charge` 之外其他字段都可以缺省，所以新出厂的车（INA219
+还没采到数）也能正常解析。
 
 ```python
 class StateSnapshot(BaseModel):
     type: Literal["state"] = "state"
-    ts: int                              # ms since boot
+    ts: int                              # 距上电的毫秒
     v: float | None = None               # V
     i: float | None = None               # mA
     soc: float | None = None             # %
     charge: ChargeState = ChargeState.IDLE
     wifi: str | None = None              # "AP" / "STA" / "AP+STA"
     speed: int | None = None             # 0..255
-    exp: list[ExpansionDevice] = []      # I2C devices
+    exp: list[ExpansionDevice] = []      # I2C 设备
 ```
 
-Unknown fields are silently ignored (`extra="ignore"`), so a newer
-firmware can add fields without breaking an older SDK.
+未知字段会被默默丢掉（`extra="ignore"`），所以新固件加字段不会搞坏旧
+SDK。
 
 ---
 
@@ -150,9 +142,9 @@ firmware can add fields without breaking an older SDK.
 ExpansionDevice(address=0x40)
 ```
 
-* `address` is a 7-bit I2C address (`0..0x7F`).
-* The firmware emits `{"addr": 64}`; the model also accepts
-  `"address"` as a synonym.  Internally, both end up as `address`.
+* `address` 是 7 位 I2C 地址（`0..0x7F`）。
+* 固件发出的是 `{"addr": 64}`；这个模型也接受 `"address"` 作为同义
+  词。内部都会归一化到 `address`。
 
 ---
 
@@ -167,22 +159,22 @@ class ChargeState(str, Enum):
     FAULT    = "fault"
 ```
 
-String values match exactly what the firmware sends, so
-`StateSnapshot.charge.value` and `charge.name` are both useful.
+字符串值跟固件发的完全一致，所以 `StateSnapshot.charge.value` 和
+`charge.name` 都能用。
 
 ---
 
-## Exceptions
+## 异常
 
-All SDK exceptions inherit from `DeskCarError`.
+所有 SDK 异常都继承自 `DeskCarError`。
 
-| Exception | When |
+| 异常 | 触发场景 |
 | :--- | :--- |
-| `DeskCarError` | base |
-| `TransportError` | WS / HTTP failure (open, send, recv) |
-| `ProtocolError` | the car sent something the SDK could not parse |
-| `NotConnectedError` | you called a method before `connect()` or after `close()` |
-| `DeskCarTimeoutError` | discovery timed out before a car answered |
+| `DeskCarError`       | 基础异常 |
+| `TransportError`     | WS / HTTP 失败（建立、发送、接收） |
+| `ProtocolError`      | 车端发来 SDK 解析不了的东西 |
+| `NotConnectedError`  | 还没 `connect()` 或者已经 `close()` 之后又调方法 |
+| `DeskCarTimeoutError` | 发现阶段超时，没人应答 |
 
 ```python
 from deskcar.exceptions import DeskCarError
@@ -190,25 +182,23 @@ from deskcar.exceptions import DeskCarError
 try:
     car = await Chassis.discover_first(timeout=2.0)
 except DeskCarTimeoutError:
-    ...   # nothing on the LAN
+    ...   # 局域网上没车
 ```
 
 ---
 
 ## Transport
 
-The SDK’s `Transport` is a thin async wrapper around a single
-`websockets` connection plus a stdlib HTTP GET.  Most users never touch
-it directly, but the public methods are:
+SDK 的 `Transport` 是单条 `websockets` 连接加一个标准库 HTTP GET 的薄
+封装。多数用户不会直接碰它，但公开方法列一下：
 
-| Method | Notes |
+| 方法 | 备注 |
 | :--- | :--- |
-| `await transport.open()` / `close()` | lifecycle |
-| `await transport.send(payload: dict)` | one JSON WS frame |
-| `await transport.http_get(path: str) -> bytes` | one HTTP GET |
-| `async for ev in transport.events(): ...` | raw event payloads |
-| `transport.info` | the bound `ChassisInfo` |
+| `await transport.open()` / `close()` | 生命周期 |
+| `await transport.send(payload: dict)` | 发一条 JSON WS 帧 |
+| `await transport.http_get(path: str) -> bytes` | 一次 HTTP GET |
+| `async for ev in transport.events(): ...` | 原始事件 payload |
+| `transport.info` | 绑定的 `ChassisInfo` |
 
-To swap in a different transport (e.g. USB-CDC, mock for tests),
-subclass `deskcar.transport.Transport` and assign it to
-`Chassis._transport`.
+要换别的 transport（比如 USB-CDC 或者测试用的 mock），继承
+`deskcar.transport.Transport` 然后赋给 `Chassis._transport` 即可。

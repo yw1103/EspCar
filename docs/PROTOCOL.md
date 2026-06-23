@@ -1,82 +1,76 @@
-# DeskCar v2 Wire Protocol
+# DeskCar v2 线协议
 
-The DeskCar firmware (`firmware/src/server.cpp`) and the Python SDK
-(`sdk/src/deskcar/`) speak the same JSON protocol on top of WebSocket +
-HTTP.  This document is the canonical contract — if you change one side,
-you must change the other, and the `test_wire_shape.py` smoke test
-inside `sdk/tests/` will keep them honest.
+DeskCar 固件（`firmware/src/server.cpp`）和 Python SDK（`sdk/src/deskcar/`）在
+WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权威定义——你改
+哪一边都必须改另一边，`sdk/tests/test_wire_shape.py` 这条冒烟测试会一直盯
+着它们一致。
 
-## Transport
+## 传输层
 
-| Channel | Endpoint | Direction | Notes |
+| 通道 | 端点 | 方向 | 备注 |
 | :--- | :--- | :--- | :--- |
-| WebSocket | `ws://<host>:80/api/v1/stream` | duplex | command + event stream |
-| HTTP GET   | `http://<host>:80/api/v1/state` | PC <- car | latest state snapshot |
-| HTTP GET   | `http://<host>:80/api/v1/devices` | PC <- car | expansion I2C scan |
-| HTTP POST  | `http://<host>:80/api/v1/move` | PC -> car | one-shot drive |
-| HTTP GET   | `http://<host>:80/`, `/control`, `/speed`, `/data` | PC -> car | v1 phone H5, kept for compat |
+| WebSocket | `ws://<host>:80/api/v1/stream` | 双向 | 命令 + 事件流 |
+| HTTP GET   | `http://<host>:80/api/v1/state` | PC <- 车 | 最新一次状态快照 |
+| HTTP GET   | `http://<host>:80/api/v1/devices` | PC <- 车 | 扩展口 I2C 扫描结果 |
+| HTTP POST  | `http://<host>:80/api/v1/move` | PC -> 车 | 一次性下发驱动指令 |
+| HTTP GET   | `http://<host>:80/`、`/control`、`/speed`、`/data` | PC -> 车 | v1 手机 H5 兼容接口 |
 
-Default port: **80** on the car’s open AP `ESP32_Car_Control`
-(`192.168.4.1`).
+默认端口：**80**。默认连的是小车开放热点 `ESP32_Car_Control`
+（`192.168.4.1`）。
 
-## WebSocket: commands (PC -> car)
+## WebSocket 命令（PC -> 车）
 
-All commands are JSON objects with a required `"type"` discriminator.
+所有命令都是 JSON 对象，必须带 `"type"` 字段作为判别。
 
-### `drive` — per-wheel PWM
+### `drive` — 每个轮子的 PWM
 
 ```json
 { "type": "drive", "left": -255, "right": 255 }
 ```
 
-* `left`, `right` are signed integers in `[-255, 255]`.
-* The firmware applies the global `speed` cap, then a 50–100 ms PWM
-  ramp (v1 critical fix to avoid brownout resets), then drives the
-  DRV8833.
-* Sending `0, 0` is **not** a hard stop; use the `stop` command
-  (it forces `ledcWrite(0)` on every channel, which is the only way
-  to release an LEDC-attached pin on ESP32).
+* `left`、`right` 是带符号整数，范围 `[-255, 255]`。
+* 固件会先套上全局 `speed` 上限，再用 50~100 ms 的 PWM 缓启斜坡（v1 关键
+  修复，避免 brownout 重启），最后驱动 DRV8833。
+* 发 `0, 0` **不是**硬刹车；要用 `stop` 命令（它强制对所有通道
+  `ledcWrite(0)`，这是 ESP32 上唯一能释放 LEDC 引脚的办法）。
 
-### `set_speed` — global PWM cap
+### `set_speed` — 全局 PWM 上限
 
 ```json
 { "type": "set_speed", "value": 200 }
 ```
 
-`value` is clamped to `[0, 255]`.  Affects every subsequent `drive`
-command; the value is also reported back in the `state` event
-(`"speed"` field).
+`value` 会被夹紧到 `[0, 255]`。影响之后所有 `drive` 命令；这个值也会回
+映到 `state` 事件的 `"speed"` 字段。
 
-### `stop` — hard stop
+### `stop` — 硬刹车
 
 ```json
 { "type": "stop" }
 ```
 
-Forces every motor channel to 0% duty.  Call this on disconnect and on
-any safety event.
+把所有电机通道强制拉到 0% 占空比。断开连接以及任何安全事件时都要调它。
 
-### `scan_expansion` — force I2C scan
+### `scan_expansion` — 强制扫一次 I2C
 
 ```json
 { "type": "scan_expansion" }
 ```
 
-Kicks the firmware to re-scan the magnetic expansion port.  The result
-is included in the next `state` event under the `exp` key, and also
-exposed via `GET /api/v1/devices`.
+让固件立刻对磁吸扩展口做一次 I2C 扫描。结果会在下一次 `state` 事件的
+`exp` 字段里，同时也通过 `GET /api/v1/devices` 暴露。
 
-### `reset` — reboot the MCU
+### `reset` — 重启 MCU
 
 ```json
 { "type": "reset" }
 ```
 
-Issues `ESP.restart()`.  Use only in dev / OTA scenarios.
+执行 `ESP.restart()`。仅在开发 / OTA 场景用。
 
-## WebSocket: events (car -> PC)
+## WebSocket 事件（车 -> PC）
 
-### `state` — telemetry snapshot, broadcast at ~5 Hz
+### `state` — 遥测快照，约 5 Hz 广播
 
 ```json
 {
@@ -92,40 +86,39 @@ Issues `ESP.restart()`.  Use only in dev / OTA scenarios.
 }
 ```
 
-| Field | Type | Description |
+| 字段 | 类型 | 含义 |
 | :--- | :--- | :--- |
-| `type` | `"state"` | discriminator |
-| `ts` | int | ms since boot (matches `millis()` on the MCU) |
-| `v` | float | battery voltage, V (INA219) |
-| `i` | float | battery current, mA (negative when charging) |
-| `soc` | int | state of charge, % |
-| `charge` | string | one of `idle`, `detected`, `charging`, `full`, `fault` |
-| `exp` | array | currently-attached expansion devices |
-| `wifi` | string | `"AP"`, `"STA"`, or `"AP+STA"` |
-| `speed` | int | current global PWM cap |
+| `type`   | `"state"` | 判别符 |
+| `ts`     | int       | 距上电的毫秒数（和 MCU 的 `millis()` 一致） |
+| `v`      | float     | 电池电压，V（INA219 测得） |
+| `i`      | float     | 电池电流，mA（充电时为负） |
+| `soc`    | int       | 剩余电量百分比 |
+| `charge` | string    | `idle` / `detected` / `charging` / `full` / `fault` 之一 |
+| `exp`    | array     | 当前已挂载的扩展口设备 |
+| `wifi`   | string    | `"AP"` / `"STA"` / `"AP+STA"` |
+| `speed`  | int       | 当前全局 PWM 上限 |
 
-Each item in `exp` is `{"addr": <7-bit I2C address>}` — the SDK accepts
-both `addr` (firmware) and `address` (Python style) as input.
+`exp` 里每条都是 `{"addr": <7 位 I2C 地址>}`——SDK 解析时既接受
+`addr`（固件命名）也接受 `address`（Python 命名）。
 
-### `encoder` — wheel counters
+### `encoder` — 轮子编码器计数
 
 ```json
 { "type": "encoder", "left": 1234, "right": 1230, "dt": 200 }
 ```
 
-* `left`, `right` are signed pulse counts (×4 quadrature from the
-  7-PPR Hall sensors, so 28 cpr).
-* `dt` is the inter-frame interval in ms.
+* `left`、`right` 是带符号的脉冲计数（7-PPR 霍尔传感器 ×4 倍频 = 28 cpr）。
+* `dt` 是两帧之间的间隔，毫秒。
 
 ### `device_attached` / `device_detached`
 
 ```json
-{ "type": "device_attached",   "address": 64 }
-{ "type": "device_detached",   "address": 64 }
+{ "type": "device_attached", "address": 64 }
+{ "type": "device_detached", "address": 64 }
 ```
 
-Emitted when the INT line on the expansion port toggles.  Use these
-together with `scan_expansion` to keep a live device map.
+扩展口 INT 引脚电平变化时触发。和 `scan_expansion` 配合就能维护一份
+实时的设备清单。
 
 ### `error`
 
@@ -133,15 +126,15 @@ together with `scan_expansion` to keep a live device map.
 { "type": "error", "msg": "i2c: bus stuck" }
 ```
 
-Free-form error string.  The SDK yields this as a raw dict; consumers
-can branch on it.
+自由格式的错误字符串。SDK 直接把它当原始 dict 抛出来，业务代码自己分支
+处理。
 
 ## HTTP
 
 ### `GET /api/v1/state`
 
-Same shape as the `state` event.  Used by the SDK’s
-`Chassis.read_state()` to grab a one-shot snapshot.
+和 `state` 事件一样的结构。是 SDK 的 `Chassis.read_state()` 取一次性快
+照的接口。
 
 ### `GET /api/v1/devices`
 
@@ -155,31 +148,29 @@ Same shape as the `state` event.  Used by the SDK’s
 { "left": 100, "right": 100 }
 ```
 
-Reply: `{"ok": true}`.  Functionally equivalent to a `drive` command
-sent over WS, but easier to use from a `curl` session or a one-shot
-script.
+返回：`{"ok": true}`。功能和 WS 上的 `drive` 一样，但用 `curl` 之类的
+一次性脚本调用更顺手。
 
-## v1 compatibility (kept for the phone H5 controller)
+## v1 兼容（保留给手机 H5 控制器）
 
-| Route | Method | Effect |
+| 路由 | 方法 | 作用 |
 | :--- | :--- | :--- |
-| `/` | GET | returns the v1 H5 page (index_html.h) |
-| `/control?dir=F\|B\|L\|R\|S` | GET | v1-style drive / stop |
-| `/speed?val=0..255` | GET | equivalent to `set_speed` |
-| `/data` | GET | `{"left": <count>, "right": <count>}` encoder snapshot |
+| `/` | GET | 返回 v1 H5 页面（index_html.h） |
+| `/control?dir=F\|B\|L\|R\|S` | GET | v1 风格的驱动 / 停止 |
+| `/speed?val=0..255` | GET | 等价于 `set_speed` |
+| `/data` | GET | `{"left": <count>, "right": <count>}` 编码器快照 |
 
-These exist so the existing v1 phone controller still works after the
-v2 firmware flash.  New code should use the `/api/v1/*` namespace and
-the WebSocket stream.
+这些接口留着，是为了烧 v2 固件之后原来的 v1 手机控制器还能用。新写的代
+码请走 `/api/v1/*` 命名空间和 WebSocket 流。
 
-## Discovery
+## 发现（Discovery）
 
-The PC broadcasts `DESKCAR_DISCOVER_V1\r\n` to `255.255.255.255:30303`;
-each car replies with a JSON advertisement:
+PC 端往 `255.255.255.255:30303` 广播 `DESKCAR_DISCOVER_V1\r\n`；每台车
+回一份 JSON 宣告：
 
 ```json
 { "host": "192.168.4.1", "port": 80, "name": "deskcar-7c9e", "v": 1 }
 ```
 
-`v` is the firmware protocol version (see `firmware/include/protocol.h`).
-The SDK uses this for `Chassis.discover()` and `discover_first()`.
+`v` 是固件协议版本（见 `firmware/include/protocol.h`）。SDK 的
+`Chassis.discover()` / `discover_first()` 就是基于这个协议做的。
