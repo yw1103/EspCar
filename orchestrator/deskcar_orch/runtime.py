@@ -125,21 +125,32 @@ class Orchestrator:
         self._last_sm_state: OrchChargeState | None = None
 
     async def run(self) -> None:
-        car = await WsCar.connect(
-            self._cfg.car_host,
-            speed_cap=180,
-            max_linear_mps=self._cfg.servo.max_linear_mps,
-            max_angular_rps=self._cfg.servo.max_angular_rps,
-        )
         camera = self._camera or _default_camera(self._cfg)
+        car: WsCar | None = None
         camera.open()
         try:
+            await self._wait_camera_ready(camera)
+            car = await WsCar.connect(
+                self._cfg.car_host,
+                speed_cap=180,
+                max_linear_mps=self._cfg.servo.max_linear_mps,
+                max_angular_rps=self._cfg.servo.max_angular_rps,
+            )
             await self._loop(car, camera)
         finally:
-            with _suppress(Exception):
-                await car.stop()
-            await car.close()
+            if car is not None:
+                with _suppress(Exception):
+                    await car.stop()
+                await car.close()
             camera.close()
+
+    async def _wait_camera_ready(self, camera: FrameSource) -> None:
+        """Ensure the frame source is producing images before we drive."""
+        from deskcar_orch.vision.camera import OpenCVCamera
+
+        if not isinstance(camera, OpenCVCamera):
+            return
+        await asyncio.to_thread(camera.wait_ready)
 
     async def _loop(self, car: WsCar, camera: FrameSource) -> None:
         perception = _Perception()
@@ -400,6 +411,8 @@ def _default_camera(cfg: OrchestratorConfig) -> FrameSource:
         height=cfg.camera.height,
         fps=cfg.camera.fps,
         flip_vertical=cfg.camera.flip_vertical,
+        warmup_timeout_s=cfg.camera.warmup_timeout_s,
+        warmup_min_frames=cfg.camera.warmup_min_frames,
     )
 
 

@@ -41,3 +41,14 @@ def test_default_yaml_loads_charger_timing_fields() -> None:
     assert cfg.charger.couple_settle_s == pytest.approx(2.0)
     assert cfg.charger.undock_distance_m == pytest.approx(0.20)
     assert cfg.charger.undock_linear_mps == pytest.approx(0.10)
+
+
+def test_default_yaml_apriltag_ids_and_camera_warmup() -> None:
+    cfg = load_config("configs/default.yaml")
+    assert cfg.vision.aruco_dict == "DICT_APRILTAG_36h11"
+    assert cfg.vision.car_marker_id == 3
+    assert cfg.vision.car_marker_size_mm == pytest.approx(50.0)
+    assert cfg.vision.dock_tag_id == 2
+    assert cfg.vision.dock_tag_size_mm == pytest.approx(50.0)
+    assert cfg.camera.warmup_timeout_s == pytest.approx(20.0)
+    assert cfg.camera.warmup_min_frames == 5

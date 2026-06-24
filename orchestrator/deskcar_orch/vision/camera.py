@@ -27,12 +27,17 @@ class OpenCVCamera(FrameSource):
         height: int = 720,
         fps: int = 30,
         flip_vertical: bool = False,
+        *,
+        warmup_timeout_s: float = 15.0,
+        warmup_min_frames: int = 3,
     ) -> None:
         self._device = device
         self._width = width
         self._height = height
         self._fps = fps
         self._flip_vertical = flip_vertical
+        self._warmup_timeout_s = warmup_timeout_s
+        self._warmup_min_frames = warmup_min_frames
         self._cap: Any | None = None
 
     def open(self) -> None:
@@ -47,6 +52,41 @@ class OpenCVCamera(FrameSource):
         self._cap = cap
         _LOG.info("camera %d open: %dx%d @ %d fps",
                   self._device, self._width, self._height, self._fps)
+
+    def wait_ready(self) -> None:
+        """Block until the camera delivers consecutive valid frames.
+
+        ``VideoCapture.isOpened()`` can succeed while the first few
+        ``read()`` calls still fail on slow external USB modules.  The
+        orchestrator calls this before connecting to the car so motors
+        do not move blind.
+        """
+        if self._cap is None:
+            raise RuntimeError("camera not opened; call open() first")
+        cap = self._cap
+        deadline = time.monotonic() + self._warmup_timeout_s
+        consecutive = 0
+        _LOG.info(
+            "waiting for camera %d (%d good frames, timeout %.1f s)",
+            self._device,
+            self._warmup_min_frames,
+            self._warmup_timeout_s,
+        )
+        while time.monotonic() < deadline:
+            ok, image = cap.read()
+            if ok and image is not None and image.size > 0:
+                consecutive += 1
+                if consecutive >= self._warmup_min_frames:
+                    _LOG.info("camera %d ready after %d frame(s)",
+                              self._device, consecutive)
+                    return
+            else:
+                consecutive = 0
+            time.sleep(0.05)
+        raise RuntimeError(
+            f"camera {self._device} did not become ready within "
+            f"{self._warmup_timeout_s:.1f} s"
+        )
 
     def close(self) -> None:
         if self._cap is not None:
