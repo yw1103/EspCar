@@ -47,4 +47,9 @@
  constexpr float  BATTERY_EMPTY_V    = 3.3f;
  constexpr int    BATTERY_CAPACITY_MAH = 1000;
 
+ // INA219 current convention: +mA = battery discharging, -mA = charging.
+ // Keep a small deadband so sensor zero-drift does not look like charging.
+ constexpr float  CHARGE_DETECT_CURRENT_MA = -20.0f;
+ constexpr float  CHARGE_FULL_V            = 4.15f;
+
  } // namespace deskcar

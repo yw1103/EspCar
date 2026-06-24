@@ -1,32 +1,40 @@
  #include "charge.h"
+ #include "battery.h"
  #include "config.h"
 
  #include <Arduino.h>
 
  namespace deskcar {
 
- // BQ51025B CHRG pin is open-drain, active-low. The dock inductor is
- // always powered but only delivers current when coupled, so we infer
- // presence from CHRG toggling.
+ // CHRG is optional. If the charger module exposes it, active-low CHRG wins.
+ // If not wired, INA219 current direction is enough for the static dock phase:
+ // +mA = battery discharging, -mA = battery charging.
  void charge_setup() {
      pinMode(PIN_CHARGE_CHRG, INPUT_PULLUP);
  }
 
  ChargeState charge_state() {
      static ChargeState last = ChargeState::Idle;
-     static uint32_t low_since_ms = 0;
+     static uint32_t active_since_ms = 0;
 
      bool chrg = digitalRead(PIN_CHARGE_CHRG) == LOW;  // active low
-     if (chrg) {
-         if (low_since_ms == 0) low_since_ms = millis();
-         uint32_t held_ms = millis() - low_since_ms;
-         if (held_ms > 1500) {
-             last = (held_ms < 30000) ? ChargeState::Charging : ChargeState::Full;
-         } else {
-             last = ChargeState::Detected;
-         }
+     BatteryReading b = battery_read();
+     bool current_says_charging =
+         b.sensor_present && b.current_ma <= CHARGE_DETECT_CURRENT_MA;
+
+     if (chrg || current_says_charging) {
+         if (active_since_ms == 0) active_since_ms = millis();
+         uint32_t held_ms = millis() - active_since_ms;
+         last = (held_ms > 1500) ? ChargeState::Charging : ChargeState::Detected;
+     } else if (
+         last == ChargeState::Charging &&
+         b.sensor_present &&
+         b.voltage_v >= CHARGE_FULL_V &&
+         b.current_ma > CHARGE_DETECT_CURRENT_MA
+     ) {
+         last = ChargeState::Full;
      } else {
-         low_since_ms = 0;
+         active_since_ms = 0;
          last = ChargeState::Idle;
      }
      return last;
@@ -44,4 +52,3 @@
  }
 
  } // namespace deskcar
-
