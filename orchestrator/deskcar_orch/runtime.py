@@ -125,7 +125,12 @@ class Orchestrator:
         self._last_sm_state: OrchChargeState | None = None
 
     async def run(self) -> None:
-        car = await WsCar.connect(self._cfg.car_host, speed_cap=180)
+        car = await WsCar.connect(
+            self._cfg.car_host,
+            speed_cap=180,
+            max_linear_mps=self._cfg.servo.max_linear_mps,
+            max_angular_rps=self._cfg.servo.max_angular_rps,
+        )
         camera = self._camera or _default_camera(self._cfg)
         camera.open()
         try:
