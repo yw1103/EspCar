@@ -1,162 +1,213 @@
- # DeskCar v2 鈥?妗岄潰鏅鸿兘搴曠洏浜у搧鍖栨柟妗?
- > 杈撳叆锛氫氦鎺ユ枃妗ｃ€奅SP32 鍙岃疆杞紡灏忚溅椤圭洰鎶€鏈氦鎺ャ€?v1, 宸茶惤鍦扮‖浠?
- > 鐩爣锛氫粠鍗曟満鐜╁叿鎵╁睍涓?妗岄潰鏅鸿兘搴曠洏"浜у搧绾匡紝瑕嗙洊鎰熺煡銆佸喅绛栥€佷緵鐢点€佹墿灞曘€丼DK 鍏ㄩ摼璺? > 璁″垝妯″紡浜х墿锛氬疄鏂藉墠涓庡紑鍙戣€呭榻愮殑鍐崇瓥瀹屾暣 (decision-complete) 璁捐绋?
- ## 1. Summary
+# DeskCar v2 项目总览与设计取舍
 
- 鍦ㄧ幇鏈?ESP32-WROOM-32 + DRV8833 + N20 鍙岃疆搴曠洏涓婂彔鍔犲洓灞傝兘鍔涳細
+> 本文档是 DeskCar 当前阶段的主线说明。它不是愿景稿，而是对现有代码、已锁定决策和后续开发边界的整理。后续接手者应先读本文，再看 `docs/PROTOCOL.md`、`docs/HARDWARE.md`、`docs/CALIBRATION.md` 和 `orchestrator/README.md`。
 
- 1. **涓婂笣瑙嗚瑙嗚瀛愮郴缁?*锛氬浐瀹氭闈㈡敮鏋剁殑 USB 鎽勫儚澶?+ 涓绘満 PC (OpenCV) 璺戣瑙夋劅鐭ャ€佺洰鏍囪窡韪€侀伩闅滀笌鍏ㄥ眬璺緞瑙勫垝銆? 2. **鏃犵嚎鎰熷簲鍏呯數**锛氬簳鐩樺祵鍏?Qi 鎺ユ敹绔?(BQ51025B)锛屾闈㈠厖鐢靛簳搴у彂灏勭 + AprilTag 鎻愪緵鍏ㄥ眬浣嶅Э鍩哄噯銆? 3. **纾佸惛鎵╁睍瑙︾偣**锛氳溅椤?5-pin pogo (3.3V / GND / SDA / SCL / INT) + 4脳 N52 纾侀搧锛屼负寮€鍙戣€呭璁炬彁渚涗緵鐢?+ I2C + 浜嬩欢涓柇銆? 4. **閫氱敤 Python SDK** (`deskcar`)锛氱函寮傛銆佸己绫诲瀷銆佸彲 `pip install`锛涘悓姝ュ叕寮€ JSON/WS 鍗忚鏂囨。渚涘叾浠栬瑷€瀹㈡埛绔噸鍐欍€?
- 鍏抽敭绾︽潫锛堟潵鑷?v1 浜ゆ帴鏂囨。锛屼笉鍙繚鍙嶏級锛?
- * 涓ョ鎶?GPIO 34/35/36/39 褰撹緭鍑虹敤锛汸WM 鎬ュ仠蹇呴』鐢?`analogWrite(pin, 0)`銆? * 缂栫爜鍣?VCC 涓?ESP32 蹇呴』鍚屾簮 3.3V锛屽惁鍒?GPIO 婕忕數鍊掔亴瀵艰嚧鑺墖閿佹銆? * 鐢垫満鐢垫簮杞ㄩ渶淇濈暀 470碌F 閫€鑰︾數瀹癸紱`setup()` 鍐呯鐢?`BROWN_OUT`銆? * PWM 鏀瑰彉鏂瑰悜鏃堕渶 50~100ms 鎱㈠惎鍔ㄦ绾с€?
- ## 2. 绯荤粺鏋舵瀯
+## 1. 项目目标
 
- ```mermaid
- flowchart LR
-   subgraph DESK["妗岄潰"]
-     Cam["USB Camera\n1080p 路 90掳+ FOV\n(妗岄潰鏀灦)"]
-     Dock["Charging Dock\nQi TX + AprilTag"]
-     Car["Chassis\nESP32 + 2xN20\nQi RX + ArUco\n纾佸惛鎵╁睍"]
-     Dev["Expansion Peripheral\nI2C 浼犳劅鍣?鑸垫満/灞?]
-   end
-   PC["PC Orchestrator\nPython - OpenCV - asyncio"]
+DeskCar 是一台桌面级两轮小车，当前路线已经明确为：
 
-   Cam -->|MJPEG/YUYV| PC
-   PC -->|WebSocket / HTTP| Car
-   PC -. 瑙嗚璇?ArUco .-> Car
-   PC -. 瑙嗚璇?AprilTag .-> Dock
-   Car <-.|Qi 5W 鎰熷簲| Dock
-   Dev <-.|纾佸惛 + pogo| Car
- ```
+1. 小车本体负责运动、充电状态检测、基础遥测和扩展口能力。
+2. PC 端负责摄像头视觉、自动回充、后续避障与更高层控制。
+3. Python SDK 面向开发者，提供统一的连接、控制、读状态、配网接口。
 
- ## 3. 纭欢鍙樻洿
+当前阶段的产品优先级是：
 
- ### 3.1 Chassis锛堟部鐢?+ 澧為噺锛?
- * 娌跨敤锛欵SP32-WROOM-32銆丏RV8833銆?x 6V N20銆丄B 鐩哥紪鐮佸櫒 (7PPR)銆佸崟鑺?18650銆? * 鏂板锛?   * **Qi 鎺ユ敹绔?*锛欱Q51025B + 鐩村緞 38mm 鎺ユ敹绾垮湀锛屽浐瀹氬簳鐩樺簳閮ㄥ眳涓€傜嚎鍦堜笂鏂圭甯冮噾灞?鐢垫睜銆?   * **鍏呯數绠＄悊**锛歍P4056 + DW01A + FS8205 (BMS 涓€浣撴澘)锛屽 18650 杩涜 CC/CV 涓庤繃鏀句繚鎶ゃ€?   * **鐢垫睜閬ユ祴**锛欼NA219 (I2C, 0x40) 娴?V/I/SOC銆?   * **杞﹂《纾佸惛鎵╁睍**锛?-pin pogo (3.3V / GND / SDA / SCL / INT) 灞呬腑锛?x N52 纾侀搧缃簬鍥涜銆?   * **杞﹂《 ArUco 鏍囪瘑**锛欰rUco 4x4 dict, ID=0, 杈归暱 32mm锛屽妗嗙櫧搴曢粦杈癸紝缁曞紑纾佸惛闃靛垪銆?   * **鐢垫満鐢垫簮閫€鑰?*锛?70碌F 閾濈數瑙?+ 100nF 闄剁摲骞惰仈鍦?DRV8833 `VM`銆?   * **閫昏緫鐢垫簮**锛氬師 3.3V LDO 鏇挎崲涓哄杈撳叆 BUCK锛岀‘淇濇劅搴斿厖鐢垫椂鐢靛帇瑁曞害銆?
- ### 3.2 Charging Dock
+1. 车能稳定动起来。
+2. 车能稳定入网，不占用用户长期网络连接。
+3. 车能在摄像头引导下自动回充。
+4. 再往后才是桌面避障、底盘产品化和开发者 SDK 扩展。
 
- * 5V/3A USB-C PD 杈撳叆 鍒?XKT-510 鎴?BQ500100 鍙戝皠绔?鍒?鐩村緞 40mm 鍙戝皠绾垮湀銆? * 椤堕潰璐?AprilTag (tag36h11, ID=0)锛屾彁渚涘叏灞€浣嶅Э鍘熺偣銆? * 鐘舵€?LED (绾?缁?钃? + 鎵嬪姩寮硅捣鎸夐挳 (GPIO 杈撳叆)銆? * 搴曢儴纭呰兌闃叉粦鍨紱楂樺害 鈮?18mm锛屼笉闃绘尅鎽勫儚澶磋閲庛€?
- ### 3.3 Vision Mount
+## 2. 已锁定的设计取舍
 
- * 妗岄潰澶瑰叿鎮噦 (1/4"-20 铻轰笣) + 90掳+ FOV USB 鎽勫儚澶?(Logitech C270 / ELP 1080p)銆? * USB 鈮?3m锛岀‘淇?USB 2.0 淇″彿瀹屾暣鎬с€? * 榛樿瀹夎楂樺害 70cm锛岃鐩?1.4m x 0.8m 妗岄潰銆?
- ### 3.4 鍏抽敭鐢垫皵绾︽潫
+### 2.1 视觉与计算位置
 
- * ESP32 3.3V 涓庣紪鐮佸櫒 VCC 鍚屾簮锛涙墿灞?I2C 鎬荤嚎蹇呴』浠?ESP32 鐨?3.3V 鍙栫數锛岀姝㈠鐏屻€? * 鎵╁睍绔彛淇″彿绾夸覆鑱?1k惟 闄愭祦锛岄槻姝㈠璁惧弽鍚戜緵鐢?ESP32銆? * 鎰熷簲鍏呯數鏃跺簳鐩樹笉寰楁湁 >2cm 閲戝睘鍑歌捣閬尅绾垮湀銆?
- ## 4. 杞欢妯″潡
+视觉闭环放在主机 PC 上，不把 OpenCV、标定、状态机和路径规划塞进 ESP32。
 
- ### 4.1 ESP32 Firmware锛圓rduino锛屾部鐢?v1 妗嗘灦锛?
- 妯″潡鎷嗗垎锛?
- * `motor.{h,cpp}` 鈥?DRV8833 + 杞惎鍔?(50ms 姊骇) + `analogWrite(0)` 鎬ュ仠銆? * `encoder.{h,cpp}` 鈥?`pcnt` 鍗曞厓姝ｄ氦瑙ｇ爜锛屾孩鍑哄洖鍗枫€? * `battery.{h,cpp}` 鈥?INA219 鍛ㄦ湡閲囨牱锛屽簱浠戠Н鍒?+ 寮€璺數鍘嬩慨姝ｃ€? * `charge.{h,cpp}` 鈥?鐩戝惉 BQ51025B `CHRG`/`STBY` 寮曡剼锛屼笂鎶ョ姸鎬佹満銆? * `expansion.{h,cpp}` 鈥?INT 杈规部妫€娴?+ 鐑彃鎷?I2C 鎵弿 (鍦板潃鍐茬獊浠茶)銆? * `wifi.{h,cpp}` 鈥?AP+STA 鍙屾ā锛欰P 淇濈暀 v1 鐨?`ESP32_Car_Control` 缁欐墜鏈?H5锛汼TA 鍔犲叆瀹跺涵 Wi-Fi 缁?PC SDK 鐢ㄣ€? * `server.{h,cpp}` 鈥?`WebServer.h` + `WebSocketServer.h`锛岃矾鐢辫 搂5銆? * `protocol.{h,cpp}` 鈥?ArduinoJSON 搴忓垪鍖?鍙嶅簭鍒楀寲銆?
- 寮曡剼琛紙鍦?v1 鍩虹涓婅拷鍔狅級锛?
- | 鍔熻兘 | GPIO | 澶囨敞 |
- | :--- | :--- | :--- |
- | INA219 SDA/SCL | 21/22 | 榛樿 I2C 鎬荤嚎 |
- | BQ51025 CHRG | 25 | 杈撳叆锛岄厤缃?`INPUT_PULLUP` |
- | 鎵╁睍 INT | 26 | 杈撳叆锛岄厤缃?`INPUT_PULLUP`锛屽弻杈规部涓柇 |
- | 鎵嬪姩寮硅捣鎸夐敭 | 13 | 杈撳叆 (LED 鍙鐢? |
+理由：
 
- GPIO 16/17 淇濈暀涓?v1 鐨勫彸鐢垫満 PWM (閬垮紑 strapping 闄愬埗)锛汫PIO 34/35 浠呰緭鍏ョ敤浜庡乏缂栫爜鍣ㄣ€?
- ### 4.2 PC Orchestrator (`orchestrator/`, Python 3.10+)
+1. PC 算力足够。
+2. 相机、标定、调参都更方便。
+3. ESP32 保持轻量，只做执行与状态上报。
 
- * `vision/camera.py` 鈥?`cv2.VideoCapture`锛岄噰闆?+ 鍗曟鏍囧畾銆? * `vision/homography.py` 鈥?妗岄潰鍥涜鍒颁笘鐣屽潗鏍囩殑閫忚鍙樻崲 (mm)銆? * `vision/tracker.py` 鈥?ArUco 4x4 杞︿綋璺熻釜锛屽彂甯?6D pose銆? * `vision/dock.py` 鈥?tag36h11 AprilTag dock 妫€娴嬶紝鍙戝竷 dock 鍏ㄥ眬浣嶅Э銆? * `vision/obstacles.py` 鈥?MOG2 鑳屾櫙鍑忛櫎 + 杩為€氬煙锛岃繑鍥為殰纰嶆爡鏍笺€? * `controller/visual_servo.py` 鈥?P-controller `(vx, w) = K_p 路 e_pose`锛岄棴鐜?30 Hz銆? * `planning/charge_sm.py` 鈥?搂6 鐘舵€佹満銆? * `bridge/ws_client.py` 鈥?`websockets` 寮傛瀹㈡埛绔紝鎺夌嚎閲嶈繛銆? * `bridge/serial_fallback.py` 鈥?USB-CDC (115200) 鍏滃簳锛屽浐浠剁儳褰?+ 鎵嬪姩鎺у埗銆?
- 渚濊禆锛歚opencv-python`, `opencv-contrib-python` (ArUco), `numpy`, `websockets`, `pydantic`, `deskcar-sdk`銆?
- ### 4.3 Python SDK (`sdk/`, 鍖呭悕 `deskcar`)
+### 2.2 充电方式
 
- * 瀹夎锛歚pip install deskcar`銆? * 渚濊禆浠?`websockets` + `pydantic` (閬垮厤浼犳煋 OpenCV 缁欎笂灞?銆? * 鍏紑 API锛堣崏妗堬級锛?
- ```python
- from deskcar import Chassis
+采用 Qi 无线充电，不做机械对接充电。
 
- car = await Chassis.discover()         # mDNS / UDP 鎵弿
- await car.connect()
+理由：
 
- await car.move(linear=0.30, angular=0.0)
- await car.goto(x=1.20, y=0.40, theta=0.0)   # 涓栫晫鍧愭爣锛屼緷璧栬瑙? await car.dock()                            # 鑷姩鍥炲厖
- await car.undock()
+1. 机械误差容忍度更高。
+2. 底盘和充电坞都更容易标准化。
+3. 对开发者扩展更友好。
 
- devices = await car.scan_expansion()        # 鎵弿鎵╁睍 I2C 璁惧
- async for ev in car.events():               # 浜嬩欢娴?     if ev.type == "device_attached":
-         ...
- ```
+### 2.3 网络方式
 
- * 浜嬩欢绫诲瀷锛歚state`, `encoder`, `battery`, `device_attached`, `device_detached`, `dock_visible`, `obstacle`, `error`銆? * 绫诲瀷娉ㄨВ 100% 瑕嗙洊锛沗py.typed` 鏍囪锛沵ypy --strict 骞插噣銆? * CI锛歱ytest + ruff + mypy銆?
- ## 5. 閫氫俊鍗忚
+采用 `STA 优先 + AP 配网/兜底`。
 
- * **HTTP REST** (鍏煎 v1)锛氫繚鐣?`/`, `/control`, `/speed`, `/data`锛涙柊澧?`/api/v1/*` 鍛藉悕绌洪棿銆? * **WebSocket**锛歚/api/v1/stream` 鍙屽悜锛汮SON 鎺у埗甯?+ 浜岃繘鍒剁紪鐮佸櫒/IMU 娴佸抚銆? * **mDNS**锛歚deskcar.local` (STA 妯″紡涓嬪箍鎾?銆? * **USB-CDC**锛?15200 bps锛屾渶鍚庢墜娈典笌鍥轰欢鐑у綍鍏辩敤閫氶亾銆?
- 鏂板绔偣锛?
- | 鏂规硶 | 璺緞 | 璇存槑 |
- | :--- | :--- | :--- |
- | GET  | `/api/v1/state` | 瀹屾暣閬ユ祴 JSON |
- | POST | `/api/v1/move` | `{linear: m/s, angular: rad/s}` 楂橀鎺у埗 |
- | WS   | `/api/v1/stream` | 鍙屽悜娴?(50Hz) |
- | GET  | `/api/v1/devices` | 鎵╁睍鍙?I2C 鎵弿缁撴灉 |
+含义是：
 
- v1 鐨?`?dir=` 绔偣淇濈暀浣滀负鎵嬫満 H5 婕旂ず鍏ュ彛锛屼笉杩涘叆 SDK 鎺ㄨ崘璺緞銆?
- ## 6. 鑷姩鍏呯數鐘舵€佹満
+1. 首次启动或入网失败时，小车开 `ESP32_Car_Control` 热点。
+2. 用户用浏览器配网后，小车加入家庭/实验室 2.4 GHz Wi-Fi。
+3. 正常使用时，用户电脑保持自己的网络连接，不必长期连小车热点。
+4. AP 仍保留作为救援入口。
 
- ```mermaid
- stateDiagram-v2
-   [*] --> IDLE
-   IDLE --> SEEK_DOCK : battery < threshold
-   SEEK_DOCK --> ALIGN : AprilTag visible
-   ALIGN --> APPROACH : tag in target zone
-   APPROACH --> COUPLE : CHRG pin asserted
-   COUPLE --> CHARGING : INA219 current > 50mA
-   CHARGING --> FULL : INA219 current < 50mA
-   FULL --> UNDOCK : user command
-   UNDOCK --> IDLE : clear of dock
- ```
+这是当前最重要的产品化分界线。
 
- * `SEEK_DOCK` 榛樿闅忔満婕父 + 娌胯竟绛栫暐锛涘彲琚敤鎴疯鐩栦负缁欏畾鐐广€? * `ALIGN` / `APPROACH` 鏈熼棿瑙嗚鎺夌嚎鍗抽€€鍥?`SEEK_DOCK`銆? * `COUPLE` 瓒呮椂 30s 鏈Е鍙?`CHRG` 鈫?閫€鍥?`ALIGN`銆?
- ## 7. 浠撳簱缁撴瀯
+### 2.4 SDK 形式
 
- ```
- deskcar/
-   firmware/                ESP32 Arduino 宸ョ▼ (PlatformIO)
-     src/
-     include/
-     test/
-   sdk/                     deskcar Python 鍖?     src/deskcar/
-     tests/
-     py.typed
-   orchestrator/            PC 绔瑙変笌瑙勫垝
-     deskcar_orch/
-     configs/
-     calib/
-   hardware/                KiCad + 缁撴瀯
-     chassis_v2/
-     dock/
-     mount/
-     bom/
-   docs/
-     PROTOCOL.md
-     SDK_REFERENCE.md
-     CALIBRATION.md
-     HARDWARE.md
-   examples/
-     keyboard_teleop.py
-     vision_dock_demo.py
-     i2c_oled.py
-     web_dashboard.py
-   .github/workflows/
-     sdk-ci.yml
-     firmware-ci.yml
-   README.md
-   LICENSE
-   PROJECT_PLAN.md
- ```
+SDK 只负责通信和基础封装，不做控制策略。
 
- ## 8. 娴嬭瘯涓庨獙鏀?
- * **鍗曞厓**锛氱紪鐮佸櫒璁℃暟绮惧害銆丳WM ramp銆両NA219 閲囨牱鍋忓樊銆佸崗璁簭鍒楀寲寰€杩斻€? * **闆嗘垚**锛欻TTP RTT p99 < 50ms锛沇S RTT p99 < 20ms锛涙柇缃?5s 鍐呰嚜鍔ㄩ噸杩炪€? * **瑙嗚**锛欰rUco 璺熻釜鎴愬姛鐜?> 99% (1.4mx0.8m 妗岄潰锛岃嚜鐒跺厜)锛汚prilTag 妫€娴?> 95% @ 1m銆? * **鑷姩鍥炲厖**锛?0 娆￠殢鏈鸿捣鐐瑰埌鍥炴々鎴愬姛鐜?> 90%锛屽崟娆″洖妗?< 60s銆? * **閬块殰**锛?00 娆￠殢鏈洪殰纰嶅垎甯冿紝纰版挒娆℃暟 = 0銆? * **鍏呯數**锛?% 鍒?80% 鈮?60 min锛涚嚎鍦堣〃闈㈡俯搴?鈮?50掳C銆? * **SDK**锛歅ython 3.10/3.11/3.12 鍦?Linux/macOS/Windows 鍚勮窇閫?quickstart锛沵ypy --strict 闆堕敊璇€? * **缁埅**锛氬崟娆″厖鐢佃繛缁椹?鈮?40 min銆?
- ## 9. 鍏抽敭鍐崇瓥锛堝凡閿佸畾锛?
- | 椤?| 閫夋嫨 | 澶囨敞 |
- | :--- | :--- | :--- |
- | 瑙嗚璁＄畻浣嶇疆 | 涓绘満 PC + USB 鎽勫儚澶?| 宸茬瓟 |
- | 鍏呯數鏂瑰紡 | 鏃犵嚎鎰熷簲 (Qi 5W) | 宸茬瓟锛涚害 5W 鍏呯數閫熺巼闇€鐢垫睜 鈮?2500mAh |
- | 鎵╁睍瑙︾偣 | 3.3V/GND/SDA/SCL/INT (5-pin) | 宸茬瓟 |
- | 瀹氫綅鏂瑰紡 | 杞﹂《 ArUco + dock AprilTag 鍙屾簮 | 宸茬瓟锛涘彲鎶楄瑙夐伄鎸?|
- | SDK 褰㈡€?| Python 浼樺厛 + 鍗忚鏂囨。 | 宸茬瓟 |
+Python SDK 提供：
 
- ## 10. 鍋囪涓庨粯璁ゅ€硷紙璇锋牎瀵癸級
+1. 发现设备
+2. 连接和断开
+3. 读状态
+4. 驱动控制
+5. 配网
+6. 扩展口扫描
 
- * 妗岄潰灏哄 1.4m x 0.8m锛涙憚鍍忓ご瀹夎楂樺害 70cm銆? * 鎽勫儚澶?FOV 鈮?90掳锛屽垎杈ㄧ巼 1080p@30fps銆? * 1S 閿傜數姹?(3.7V / 1000mAh) 鍒?杩炵画琛岄┒绾?45 min锛?鈫?0% 鍏呯數绾?50 min銆? * N20 鐢垫満 + 7PPR 缂栫爜鍣ㄦ部鐢?v1锛涢棴鐜敱 ESP32 鍐呴儴瀹屾垚銆? * 瑙嗚寤惰繜 鈮?33ms (30Hz)锛涙帶鍒跺洖璺?鈮?50Hz銆? * Wi-Fi锛欰P+STA 鍙屾ā锛孉P 淇濈暀 v1 SSID 缁欐墜鏈?H5銆? * 鎵╁睍 I2C 榛樿閫熺巼 400kHz锛涘閮ㄦ€荤嚎涓婃媺 4.7k惟銆? * 妗岄潰杈圭紭瑙嗕负纭锛堥伩闅滅鍖猴級銆?
- ## 11. 寰呭姙涓庢湭鏉ュ伐浣?
- * ROS2 humble/jazzy 鍖咃紙v1.1锛夈€? * iOS / Android 鍘熺敓 SDK锛坴1.1锛夈€? * 澶氳溅鍗忓悓璋冨害 (v2)銆? * 妗岄潰澶栧満鏅殑杞婚噺 SLAM (v2)銆? * 宓屽叆寮?IMU (BNO085) 鍔犲叆杞︿綋锛屾彁楂樼煭鏆傝瑙変涪璺熻釜鏃剁殑浣嶅Э鎺ㄧ畻 (v2)銆? * "纾佸惛澶栬搴?锛氬紑绠卞嵆鐢ㄧ殑 OLED銆乀oF銆丷GB銆佽埖鏈恒€佸す鐖ā鍧?(涓?SDK 鍚屾鍙戝竷)銆?
+自动回充、视觉闭环、状态机都放在 `orchestrator/`。
+
+## 3. 当前实现现状
+
+### 3.1 固件
+
+固件已经不是纯 v1 热点遥控了，当前具备：
+
+1. 电机驱动和 PWM 缓启动。
+2. 编码器计数。
+3. INA219 电压/电流读取。
+4. 充电状态检测。
+5. 扩展口 I2C 扫描。
+6. WebSocket 状态流。
+7. `/api/v1/*` 设备协议。
+8. Wi-Fi 配网保存与 AP 兜底。
+9. 极简手机控制页和极简配网页。
+
+### 3.2 SDK
+
+SDK 已经可以：
+
+1. 自动发现设备。
+2. 打开 WebSocket 和 HTTP。
+3. 发送 drive/stop/set_speed/scan_expansion。
+4. 读取 state。
+5. 读取和写入 Wi-Fi 配置。
+6. 排空事件流，避免状态帧堵住控制链路。
+
+### 3.3 Orchestrator
+
+主机端已经具备自动回充主链路：
+
+1. ArUco 识别车体。
+2. AprilTag 识别充电坞。
+3. 单应矩阵映射桌面坐标。
+4. 视觉伺服。
+5. 回充状态机。
+6. 自动回充测试。
+
+当前缺的不是大框架，而是真桌面上的标定、调参和稳定性打磨。
+
+## 4. 硬件边界
+
+### 4.1 车体
+
+车体保持 ESP32 + DRV8833 + 双 N20 电机 + 编码器的基本结构。
+
+### 4.2 充电坞
+
+充电坞采用固定 TX 线圈 + AprilTag 侧标的形式。
+
+关键点：
+
+1. AprilTag 不贴在 pad 正中，而是贴在侧边板上。
+2. pad 中心和 tag 中心的偏移由软件配置补偿。
+3. 摄像头必须能在接近过程中一直看到 tag。
+
+### 4.3 扩展口
+
+车顶保留 5-pin 磁吸扩展口，给后续开发者接 I2C 模块、状态输入或小型外设。
+
+## 5. 软件分层
+
+### 5.1 固件层
+
+固件只做三件事：
+
+1. 执行运动。
+2. 提供遥测。
+3. 管理 Wi-Fi、扩展口和充电信号。
+
+### 5.2 SDK 层
+
+SDK 只做协议和 API 封装，保证 Python 开发者能快速接入。
+
+### 5.3 Orchestrator 层
+
+Orchestrator 负责：
+
+1. 视觉定位。
+2. 伺服控制。
+3. 自动回充状态机。
+4. 后续避障与更高层策略。
+
+## 6. 协议边界
+
+当前协议主干固定为：
+
+1. `GET /api/v1/state`
+2. `GET /api/v1/devices`
+3. `GET/POST/DELETE /api/v1/wifi`
+4. `POST /api/v1/move`
+5. WebSocket `/api/v1/stream`
+
+旧的 v1 手机控制页保留，但只作为兼容入口，不再是主路径。
+
+## 7. 自动回充路线
+
+自动回充状态机已经存在，当前最重要的是把它跑稳。
+
+状态顺序是：
+
+1. `IDLE`
+2. `SEEK_DOCK`
+3. `ALIGN`
+4. `APPROACH`
+5. `COUPLE`
+6. `CHARGING`
+7. `FULL`
+8. `UNDOCK`
+
+后续调参重点是：
+
+1. 标定准确性。
+2. tag 到 pad 的偏移。
+3. 线圈耦合距离。
+4. 车体减速和停靠行为。
+
+## 8. 当前优先级
+
+下一阶段的实际优先级如下：
+
+1. 继续巩固 Wi-Fi 配网网页与局域网发现。
+2. 把极简手机页和配网页再做一轮内存与体验收敛。
+3. 跑通真实桌面标定。
+4. 跑通 `--dock` 手动强制回充。
+5. 验证低电量自动回充。
+6. 再谈避障和更复杂的产品化能力。
+
+## 9. 文件导览
+
+建议先看这些：
+
+1. [README.md](README.md)
+2. [docs/PROTOCOL.md](docs/PROTOCOL.md)
+3. [docs/HARDWARE.md](docs/HARDWARE.md)
+4. [docs/CALIBRATION.md](docs/CALIBRATION.md)
+5. [orchestrator/README.md](orchestrator/README.md)
+6. [sdk/README.md](sdk/README.md)
+
+## 10. 结论
+
+这份项目已经从“遥控玩具车”走到了“可配网、可发现、可自动回充、可开发 SDK 的桌面底盘”阶段。
+
+接下来最值得做的不是再堆功能，而是把现有闭环做稳、做轻、做成可以长期接手的工程结构。
