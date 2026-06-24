@@ -45,7 +45,7 @@ class AprilTagDockDetector:
     def _ensure_loaded(self) -> None:
         if self._detector is not None:
             return
-        import cv2  # type: ignore[import-not-found]
+        import cv2
 
         # tag36h11 is the AprilTag default family used by apriltag ROS nodes.
         try:
@@ -53,19 +53,18 @@ class AprilTagDockDetector:
                 cv2.aruco.DICT_APRILTAG_36h11
             )
         except AttributeError:  # very old OpenCV
-            raise RuntimeError("OpenCV build lacks APRILTAG_36h11; need 4.7+")
+            raise RuntimeError("OpenCV build lacks APRILTAG_36h11; need 4.7+") from None
         params = cv2.aruco.DetectorParameters()
         self._detector = cv2.aruco.ArucoDetector(self._dict, params)
 
     def detect(self, image: np.ndarray) -> DockObservation | None:
         """Return the dock pose in world frame, or None if not seen."""
         self._ensure_loaded()
-        import cv2  # type: ignore[import-not-found]
 
         corners, ids, _ = self._detector.detectMarkers(image)
         if ids is None:
             return None
-        for marker_corners, marker_id in zip(corners, ids.flatten().tolist()):
+        for marker_corners, marker_id in zip(corners, ids.flatten().tolist(), strict=False):
             if marker_id != self._tag_id:
                 continue
             pts = marker_corners.reshape(4, 2)

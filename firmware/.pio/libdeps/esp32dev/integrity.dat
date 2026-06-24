@@ -1,7 +1,0 @@
-bblanchon/ArduinoJson@^7.0.4
-ESP32Async/ESPAsyncWebServer@^3.6.0
--DCORE_DEBUG_LEVEL=3
-build_flags =
--std=gnu++17
-adafruit/Adafruit INA219@^1.2.0
-ESP32Async/AsyncTCP@^3.4.0

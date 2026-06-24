@@ -28,7 +28,7 @@ class Homography:
         cls,
         pixel_pts: list[tuple[float, float]],
         world_pts: list[tuple[float, float]],
-    ) -> "Homography":
+    ) -> Homography:
         """Build a homography from 4+ (pixel, world) point pairs."""
         if len(pixel_pts) != len(world_pts) or len(pixel_pts) < 4:
             raise ValueError("need at least 4 matching point pairs")
@@ -67,7 +67,7 @@ def cv2_find_homography(src: np.ndarray, dst: np.ndarray) -> tuple[np.ndarray | 
     at module load time.  Falls back to a pure-numpy DLT solver when cv2 is
     not installed (e.g. headless CI)."""
     try:
-        import cv2  # type: ignore[import-not-found]
+        import cv2
 
         H, mask = cv2.findHomography(src, dst, method=0)
         return H, np.zeros((len(src), 1), dtype=np.uint8) if mask is None else mask
@@ -81,7 +81,7 @@ def _dlt_homography(src: np.ndarray, dst: np.ndarray) -> np.ndarray:
     if n < 4:
         return np.eye(3, dtype=np.float64)
     a: list[list[float]] = []
-    for (x, y), (u, v) in zip(src, dst):
+    for (x, y), (u, v) in zip(src, dst, strict=False):
         a.append([-x, -y, -1.0, 0.0, 0.0, 0.0, u * x, u * y, u])
         a.append([0.0, 0.0, 0.0, -x, -y, -1.0, v * x, v * y, v])
     A = np.asarray(a, dtype=np.float64)
@@ -89,7 +89,7 @@ def _dlt_homography(src: np.ndarray, dst: np.ndarray) -> np.ndarray:
     H = vh[-1].reshape(3, 3)
     if abs(H[2, 2]) > 1e-12:
         H = H / H[2, 2]
-    return H
+    return np.asarray(H, dtype=np.float64)
 
 
 def identity_homography() -> Homography:

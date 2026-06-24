@@ -108,6 +108,3 @@ class ChargeMachine:
         tr = Transition(frm=self._state, to=new, event=event)
         self._state = new
         return tr
-
-    # Convenience helpers for the runtime.
-    on_enter: dict[ChargeState, Callable[[], None]] = {}

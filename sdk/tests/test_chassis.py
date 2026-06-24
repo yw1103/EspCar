@@ -74,6 +74,26 @@ async def test_events_yields_snapshot_then_raw(chassis: Chassis) -> None:
     await chassis.close()
 
 
+async def test_start_event_drain_consumes_background_frames(chassis: Chassis) -> None:
+    await chassis.connect()
+    drain = chassis.start_event_drain()
+    try:
+        chassis.feed(
+            {"type": "state", "ts": 1, "v": 3.9, "i": 0, "soc": 50, "charge": "idle"}
+        )
+        chassis.feed(
+            {"type": "state", "ts": 2, "v": 3.8, "i": 0, "soc": 49, "charge": "idle"}
+        )
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        assert chassis._transport.inbox.empty()
+    finally:
+        drain.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await drain
+        await chassis.close()
+
+
 async def test_async_context_manager(chassis: Chassis) -> None:
     async with chassis as car:
         await car.drive(50, 50)

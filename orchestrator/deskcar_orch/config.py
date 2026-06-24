@@ -82,7 +82,7 @@ class OrchestratorConfig:
     desk_size_m: tuple[float, float] = (1.4, 0.8)
     log_level: str = "INFO"
 
-    def with_overrides(self, **kwargs: Any) -> "OrchestratorConfig":
+    def with_overrides(self, **kwargs: Any) -> OrchestratorConfig:
         """Return a copy with the given top-level fields replaced."""
         return replace(self, **kwargs)
 
@@ -110,7 +110,7 @@ def _from_dict(raw: dict[str, Any]) -> OrchestratorConfig:
     if "dock_pad_offset_m" in raw_charger:
         charger_overrides["dock_pad_offset_m"] = tuple(
             raw_charger["dock_pad_offset_m"]
-        )  # type: ignore[arg-type]
+        )
 
     return OrchestratorConfig(
         camera=section("camera", CameraConfig, {}),
@@ -118,6 +118,6 @@ def _from_dict(raw: dict[str, Any]) -> OrchestratorConfig:
         servo=section("servo", ServoConfig, {}),
         charger=section("charger", ChargerConfig, charger_overrides),
         car_host=str(raw.get("car_host", "192.168.4.1")),
-        desk_size_m=tuple(raw.get("desk_size_m", (1.4, 0.8))),  # type: ignore[arg-type]
+        desk_size_m=tuple(raw.get("desk_size_m", (1.4, 0.8))),
         log_level=str(raw.get("log_level", "INFO")),
     )

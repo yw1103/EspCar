@@ -6,7 +6,7 @@ import asyncio
 import logging
 import sys
 
-from deskcar_orch.config import OrchestratorConfig, load_config
+from deskcar_orch.config import load_config
 from deskcar_orch.runtime import Orchestrator
 
 _LOG = logging.getLogger("deskcar_orch")

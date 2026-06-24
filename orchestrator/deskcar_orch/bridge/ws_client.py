@@ -7,8 +7,10 @@ the ``deskcar`` package; we do not re-export it.
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
-from typing import Any
+from typing import Any, cast
 
 from deskcar.types import StateSnapshot
 
@@ -25,18 +27,20 @@ class WsCar:
     is constructed with an already-open SDK client.
     """
 
-    def __init__(self, car: Any) -> None:
+    def __init__(self, car: Any, drain_task: asyncio.Task[None] | None = None) -> None:
         self._car = car
+        self._drain_task = drain_task
 
     @classmethod
-    async def connect(cls, host: str, *, speed_cap: int = 180) -> "WsCar":
+    async def connect(cls, host: str, *, speed_cap: int = 180) -> WsCar:
         """Open a connection to ``host`` and apply the PWM cap."""
         from deskcar import Chassis  # local import keeps the bridge optional
 
         car = Chassis.from_host(host)
         await car.connect()
+        drain_task = car.start_event_drain()
         await car.set_speed_cap(speed_cap)
-        return cls(car)
+        return cls(car, drain_task)
 
     async def drive_twist(self, twist: Twist) -> None:
         """Convert a body-frame twist to per-wheel PWM.
@@ -55,9 +59,14 @@ class WsCar:
         await self._car.stop()
 
     async def read_state(self) -> StateSnapshot:
-        return await self._car.read_state()
+        return cast(StateSnapshot, await self._car.read_state())
 
     async def close(self) -> None:
+        if self._drain_task is not None:
+            self._drain_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._drain_task
+            self._drain_task = None
         await self._car.close()
 
 

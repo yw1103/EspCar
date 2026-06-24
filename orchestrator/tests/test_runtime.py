@@ -4,7 +4,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from deskcar.types import ChargeState, StateSnapshot
 
 from deskcar_orch.config import OrchestratorConfig

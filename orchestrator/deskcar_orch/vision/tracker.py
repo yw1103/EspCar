@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -30,7 +30,7 @@ class ArUcoTracker:
     centre, also expressed in the world frame.
     """
 
-    _DICT_NAMES = {
+    _DICT_NAMES: ClassVar[dict[str, str]] = {
         "DICT_4X4_50": "DICT_4X4_50",
         "DICT_4X4_100": "DICT_4X4_100",
         "DICT_5X5_50": "DICT_5X5_50",
@@ -56,7 +56,7 @@ class ArUcoTracker:
     def _ensure_loaded(self) -> None:
         if self._detector is not None:
             return
-        import cv2  # type: ignore[import-not-found]
+        import cv2
 
         dict_const = getattr(cv2.aruco, self._dict_name, None)
         if dict_const is None:
@@ -69,12 +69,11 @@ class ArUcoTracker:
     def track(self, image: np.ndarray) -> MarkerObservation | None:
         """Return the car pose in world frame, or None if not seen."""
         self._ensure_loaded()
-        import cv2  # type: ignore[import-not-found]
 
         corners, ids, _ = self._detector.detectMarkers(image)
         if ids is None:
             return None
-        for marker_corners, marker_id in zip(corners, ids.flatten().tolist()):
+        for marker_corners, marker_id in zip(corners, ids.flatten().tolist(), strict=False):
             if marker_id != self._marker_id:
                 continue
             pts = marker_corners.reshape(4, 2)

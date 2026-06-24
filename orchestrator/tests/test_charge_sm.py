@@ -12,7 +12,11 @@ from deskcar_orch.planning.charge_sm import (
 def test_idle_to_seek_on_battery_low() -> None:
     sm = ChargeMachine()
     tr = sm.dispatch(ChargeEvent.BATTERY_LOW)
-    assert tr == Transition(frm=ChargeState.IDLE, to=ChargeState.SEEK_DOCK, event=ChargeEvent.BATTERY_LOW)
+    assert tr == Transition(
+        frm=ChargeState.IDLE,
+        to=ChargeState.SEEK_DOCK,
+        event=ChargeEvent.BATTERY_LOW,
+    )
     assert sm.state is ChargeState.SEEK_DOCK
 
 

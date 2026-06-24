@@ -4,10 +4,10 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Iterator
+from typing import Any
 
 import numpy as np
 
-from deskcar_orch.geometry import Pose
 from deskcar_orch.vision.base import Frame, FrameSource
 
 _LOG = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class OpenCVCamera(FrameSource):
         self._height = height
         self._fps = fps
         self._flip_vertical = flip_vertical
-        self._cap: "object | None" = None
+        self._cap: Any | None = None
 
     def open(self) -> None:
         import cv2  # local import: keeps the rest of the package OpenCV-free

@@ -15,27 +15,24 @@ during undock, idle while charging).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import time
 from collections.abc import Iterator
 from dataclasses import replace
 
 import numpy as np
-
 from deskcar.types import ChargeState, StateSnapshot
 
 from deskcar_orch.bridge.ws_client import WsCar
 from deskcar_orch.config import OrchestratorConfig
 from deskcar_orch.geometry import Pose
-from deskcar_orch.planning.charge_sm import (
-    ChargeEvent,
-    ChargeState as OrchChargeState,
-)
-from deskcar_orch.runtime import Orchestrator, _StateMonitor
+from deskcar_orch.planning.charge_sm import ChargeEvent
+from deskcar_orch.planning.charge_sm import ChargeState as OrchChargeState
+from deskcar_orch.runtime import Orchestrator
 from deskcar_orch.vision.base import Frame
 from deskcar_orch.vision.dock import DockObservation
 from deskcar_orch.vision.tracker import MarkerObservation
-
 
 # ---- stubs -----------------------------------------------------------------
 
@@ -47,7 +44,7 @@ class _StubTracker:
         self._pose_provider = pose_provider
         self._marker_id = marker_id
 
-    def track(self, image):  # noqa: ARG002 - matches ArUcoTracker signature
+    def track(self, image):
         pose = self._pose_provider()
         return MarkerObservation(pose=pose, pixel=(0.0, 0.0), marker_id=self._marker_id)
 
@@ -60,7 +57,7 @@ class _StubDockDetector:
         self._visible_provider = visible_provider
         self._tag_id = tag_id
 
-    def detect(self, image):  # noqa: ARG002
+    def detect(self, image):
         if not self._visible_provider():
             return None
         pose = self._pose_provider()
@@ -159,12 +156,9 @@ class _FastOrchestrator(Orchestrator):
     """
 
     async def _update_state(self, car, monitor):  # type: ignore[override]
-        try:
-            monitor.last_state = await car.read_state()
-            monitor.last_state_t = time.monotonic()
-            self._last_monitor = monitor
-        except Exception:  # pragma: no cover
-            pass
+        monitor.last_state = await car.read_state()
+        monitor.last_state_t = time.monotonic()
+        self._last_monitor = monitor
 
 
 # ---- helpers ----------------------------------------------------------------
@@ -275,10 +269,8 @@ async def test_auto_recharge_full_cycle() -> None:
 
     finally:
         runner.cancel()
-        try:
+        with contextlib.suppress(BaseException):
             await runner
-        except BaseException:
-            pass
 
 
 async def test_seek_to_align_transition_when_dock_appears() -> None:
@@ -302,7 +294,5 @@ async def test_seek_to_align_transition_when_dock_appears() -> None:
         await _wait_for(orch, OrchChargeState.ALIGN, timeout=1.0)
     finally:
         runner.cancel()
-        try:
+        with contextlib.suppress(BaseException):
             await runner
-        except BaseException:
-            pass

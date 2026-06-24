@@ -58,7 +58,7 @@ strict = true
 files = ["deskcar_orch"]
 
 [[tool.mypy.overrides]]
-module = ["cv2.*"]
+module = ["cv2.*", "yaml"]
 ignore_missing_imports = true
 
 [tool.ruff]

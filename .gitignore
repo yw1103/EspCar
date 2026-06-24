@@ -1,45 +1,53 @@
- # Python
- __pycache__/
- *.py[cod]
- *$py.class
- *.so
- .pytest_cache/
- .mypy_cache/
- .ruff_cache/
- .venv/
- venv/
- env/
- .env
- *.egg-info/
- dist/
- build/
- .coverage
- htmlcov/
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+**/*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
 
- # PlatformIO / Arduino
- .pio/
- .vscode/.browse.VC.db*
- firmware/.pio/
- firmware/src/*.ino
+# PlatformIO / Arduino
+.pio/
+firmware/.pio/
+firmware/.cache/
+.vscode/.browse.VC.db*
+firmware/src/*.ino
 
- # IDE
- .idea/
- .vscode/
- *.swp
- *.swo
- *~
- .DS_Store
- Thumbs.db
+# IDE / OS
+.idea/
+examples/.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.lnk
+.DS_Store
+Thumbs.db
 
- # Build artifacts
- *.bin
- *.elf
- *.hex
- *.uf2
+# Build artifacts
+*.bin
+*.elf
+*.hex
+*.uf2
+*.map
+*.o
+*.d
 
 # Calibration
 orchestrator/deskcar_orch/calib/*.npy
 
- # Logs
- *.log
- logs/
+# Logs
+*.log
+logs/

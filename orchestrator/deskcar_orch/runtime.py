@@ -18,26 +18,31 @@ import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 import numpy as np
-
 from deskcar.types import ChargeState, StateSnapshot
 
 from deskcar_orch.bridge.ws_client import WsCar
 from deskcar_orch.config import OrchestratorConfig
 from deskcar_orch.controller.visual_servo import VisualServo
 from deskcar_orch.geometry import Pose, Twist
-from deskcar_orch.planning.charge_sm import (
-    ChargeEvent,
-    ChargeMachine,
-    ChargeState as OrchChargeState,
-)
+from deskcar_orch.planning.charge_sm import ChargeEvent, ChargeMachine
+from deskcar_orch.planning.charge_sm import ChargeState as OrchChargeState
 from deskcar_orch.vision.base import Frame, FrameSource
 from deskcar_orch.vision.dock import AprilTagDockDetector, DockObservation
 from deskcar_orch.vision.homography import Homography
 from deskcar_orch.vision.tracker import ArUcoTracker, MarkerObservation
 
 _LOG = logging.getLogger(__name__)
+
+
+class _TrackerLike(Protocol):
+    def track(self, image: np.ndarray) -> MarkerObservation | None: ...
+
+
+class _DockDetectorLike(Protocol):
+    def detect(self, image: np.ndarray) -> DockObservation | None: ...
 
 
 def _charge_is_active(state: StateSnapshot) -> bool:
@@ -84,8 +89,8 @@ class Orchestrator:
         *,
         camera: FrameSource | None = None,
         force_dock: bool = False,
-        tracker: "ArUcoTracker | _StubTracker | None" = None,
-        dock_det: "AprilTagDockDetector | _StubDockDetector | None" = None,
+        tracker: _TrackerLike | None = None,
+        dock_det: _DockDetectorLike | None = None,
     ) -> None:
         self._cfg = cfg
         self._force_dock = force_dock
@@ -160,11 +165,14 @@ class Orchestrator:
             self._sm = ChargeMachine(OrchChargeState.CHARGING)
             return
 
-        if state is not None and state.soc is not None:
-            if state.soc <= self._cfg.charger.dock_soc_threshold:
-                _LOG.info("battery low (%s%%); starting auto-dock", state.soc)
-                self._sm.dispatch(ChargeEvent.BATTERY_LOW)
-                return
+        if (
+            state is not None
+            and state.soc is not None
+            and state.soc <= self._cfg.charger.dock_soc_threshold
+        ):
+            _LOG.info("battery low (%s%%); starting auto-dock", state.soc)
+            self._sm.dispatch(ChargeEvent.BATTERY_LOW)
+            return
 
         _LOG.info("battery ok; idling until dock needed")
 

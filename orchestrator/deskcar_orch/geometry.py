@@ -16,13 +16,13 @@ class Vec2:
     x: float
     y: float
 
-    def __add__(self, other: "Vec2") -> "Vec2":
+    def __add__(self, other: Vec2) -> Vec2:
         return Vec2(self.x + other.x, self.y + other.y)
 
-    def __sub__(self, other: "Vec2") -> "Vec2":
+    def __sub__(self, other: Vec2) -> Vec2:
         return Vec2(self.x - other.x, self.y - other.y)
 
-    def __mul__(self, k: float) -> "Vec2":
+    def __mul__(self, k: float) -> Vec2:
         return Vec2(self.x * k, self.y * k)
 
     __rmul__ = __mul__
@@ -30,7 +30,7 @@ class Vec2:
     def norm(self) -> float:
         return math.hypot(self.x, self.y)
 
-    def rotate(self, theta: float) -> "Vec2":
+    def rotate(self, theta: float) -> Vec2:
         c, s = math.cos(theta), math.sin(theta)
         return Vec2(c * self.x - s * self.y, s * self.x + c * self.y)
 
@@ -46,7 +46,7 @@ class Pose:
     def as_tuple(self) -> tuple[float, float, float]:
         return (self.x, self.y, self.theta)
 
-    def error_to(self, target: "Pose") -> "Pose":
+    def error_to(self, target: Pose) -> Pose:
         """Return the error pose (target - self) in the world frame."""
         dx = target.x - self.x
         dy = target.y - self.y
@@ -61,7 +61,7 @@ class Twist:
     linear: float
     angular: float
 
-    def clipped(self, max_linear: float, max_angular: float) -> "Twist":
+    def clipped(self, max_linear: float, max_angular: float) -> Twist:
         """Return a new Twist with each component magnitude-clamped."""
         return Twist(
             linear=_clamp(self.linear, -abs(max_linear), abs(max_linear)),
