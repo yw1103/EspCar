@@ -22,11 +22,23 @@ pip install -e ./sdk
 # 2. 烧录固件（一次性）
 pio run -d firmware -t upload
 
-# 3. 用 Python 驱动小车
-python examples/read_state_demo.py
+# 3. 首次直连小车 AP，确认状态
+python examples/read_state_demo.py --host 192.168.4.1
 ```
 
-小车首次上电会创建名为 `ESP32_Car_Control` 的开放热点。电脑连上这个 SSID 之后，再运行示例（默认主机地址 `192.168.4.1`）。
+小车首次上电会创建名为 `ESP32_Car_Control` 的开放热点。先临时连上它，给小车写入
+2.4 GHz Wi-Fi 凭据；重启后小车优先加入用户局域网，电脑可以保持正常上网，并用
+`Chassis.discover_first()` 或 `python examples/read_state_demo.py` 自动发现小车。
+
+```python
+from deskcar import Chassis
+
+car = Chassis.from_host("192.168.4.1")
+# await car.connect()
+# await car.configure_wifi("你的WiFi名称", "你的WiFi密码")
+```
+
+如果 STA 连接失败，小车会继续保留 `ESP32_Car_Control` 作为兜底配网入口。
 
 ## 已锁定的设计决策
 

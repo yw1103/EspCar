@@ -49,8 +49,26 @@ class StateSnapshot(BaseModel):
     soc: float | None = Field(default=None, ge=0, le=100, description="State of charge (%)")
     charge: ChargeState = ChargeState.IDLE
     wifi: str | None = None
+    ip: str | None = None
+    ap_ip: str | None = None
+    sta_ip: str | None = None
+    ssid: str | None = None
+    sta_configured: bool | None = None
     speed: int | None = Field(default=None, ge=0, le=255, description="Global PWM cap")
     exp: list[ExpansionDevice] = Field(default_factory=list)
+
+
+class WifiSnapshot(BaseModel):
+    """Current network mode and provisioning status."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    wifi: str
+    ip: str
+    ap_ip: str | None = None
+    sta_ip: str | None = None
+    ssid: str | None = None
+    sta_configured: bool = False
 
 
 class ChassisInfo(BaseModel):

@@ -43,9 +43,6 @@
      WifiConfig cfg{};
      strncpy(cfg.ap_ssid, AP_SSID, sizeof(cfg.ap_ssid) - 1);
      strncpy(cfg.mdns_name, MDNS_NAME, sizeof(cfg.mdns_name) - 1);
-     // STA creds can be provisioned via /api/v1/config in a later milestone;
-     // for now leave disabled to keep the AP path identical to v1.
-     cfg.sta_enabled = false;
      wifi_setup(cfg);
 
      server_setup(g_http, g_ws);
@@ -55,6 +52,7 @@
  uint32_t g_last_state_ms = 0;
  void loop() {
      motor_tick();
+     wifi_tick();
      g_ws.cleanupClients();
      uint32_t now = millis();
      if (now - g_last_state_ms > 200) {  // 5 Hz state broadcast

@@ -35,6 +35,7 @@ from deskcar.types import (
     SetSpeedCommand,
     StateSnapshot,
     StopCommand,
+    WifiSnapshot,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -120,6 +121,29 @@ class Chassis:
     async def read_state(self) -> StateSnapshot:
         raw = await self._transport.http_get("/api/v1/state")
         return StateSnapshot.model_validate_json(raw)
+
+    async def read_wifi(self) -> WifiSnapshot:
+        """Return current Wi-Fi mode, IPs, and provisioning status."""
+        raw = await self._transport.http_get("/api/v1/wifi")
+        return WifiSnapshot.model_validate_json(raw)
+
+    async def configure_wifi(self, ssid: str, password: str = "") -> bool:
+        """Store STA credentials on the car.
+
+        The firmware returns ``restart_required=true``; callers should reboot
+        or power-cycle the ESP32 before expecting it to join the new network.
+        """
+        raw = await self._transport.http_post_json(
+            "/api/v1/wifi", {"ssid": ssid, "pass": password}
+        )
+        payload = json.loads(raw)
+        return bool(payload.get("ok"))
+
+    async def clear_wifi(self) -> bool:
+        """Remove stored STA credentials; AP fallback remains available."""
+        raw = await self._transport.http_delete("/api/v1/wifi")
+        payload = json.loads(raw)
+        return bool(payload.get("ok"))
 
     def feed(self, payload: dict[str, Any] | bytes) -> None:
         """Test hook: inject a wire frame into the inbound event queue."""

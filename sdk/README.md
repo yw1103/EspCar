@@ -14,6 +14,28 @@ pip install -e "./sdk[dev]"
 
 ## 快速开始
 
+首次使用时，小车会开启 `ESP32_Car_Control` 热点。先连上这个热点，打开
+`http://192.168.4.1/wifi`，在网页里写入家里/实验室的 2.4 GHz Wi-Fi；重启后
+电脑就可以保持正常联网，并通过局域网控制小车。
+
+开发者也可以用 SDK 配网：
+
+```python
+import asyncio
+from deskcar import Chassis
+
+async def provision() -> None:
+    car = Chassis.from_host("192.168.4.1")
+    await car.connect()
+    try:
+        await car.configure_wifi("LabWiFi", "password")
+        print("saved; restart the ESP32, then use discover_first()")
+    finally:
+        await car.close()
+
+asyncio.run(provision())
+```
+
 ```python
 import asyncio
 from deskcar import Chassis, StateSnapshot
@@ -29,7 +51,7 @@ async def main() -> None:
 
     # 读取最新一次遥测快照
     snap: StateSnapshot = await car.read_state()
-    print(snap.charge.name, snap.v, snap.soc)
+    print(snap.charge.name, snap.v, snap.soc, snap.ip)
 
     # 列出磁吸扩展口上的设备
     devices = await car.scan_expansion()       # 强制做一次 I2C 扫描
@@ -56,6 +78,9 @@ asyncio.run(main())
 | `Chassis.set_speed_cap(value)`     | 全局 PWM 上限 0..255（固件会持久化） |
 | `Chassis.scan_expansion()`         | 返回磁吸扩展口上的 I2C 设备 |
 | `Chassis.read_state()`             | 一次性读取遥测快照 |
+| `Chassis.read_wifi()`              | 读取当前 AP/STA/IP/SSID 状态 |
+| `Chassis.configure_wifi(ssid, password)` | 保存 STA Wi-Fi 凭据，重启后优先入网 |
+| `Chassis.clear_wifi()`             | 清除 STA 凭据，回到 AP 配网/兜底 |
 | `Chassis.events()`                 | WS 事件流（state + 扩展口事件） |
 
 SDK 本身**不**做路径规划、不做自动回冲、不闭合控制环——这些都在 PC 端的

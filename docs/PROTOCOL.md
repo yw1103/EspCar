@@ -12,11 +12,21 @@ WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权
 | WebSocket | `ws://<host>:80/api/v1/stream` | 双向 | 命令 + 事件流 |
 | HTTP GET   | `http://<host>:80/api/v1/state` | PC <- 车 | 最新一次状态快照 |
 | HTTP GET   | `http://<host>:80/api/v1/devices` | PC <- 车 | 扩展口 I2C 扫描结果 |
+| HTTP GET   | `http://<host>:80/api/v1/wifi` | PC <- 车 | 当前 Wi-Fi / IP / 配网状态 |
+| HTTP POST  | `http://<host>:80/api/v1/wifi` | PC -> 车 | 写入 STA Wi-Fi 凭据 |
+| HTTP DELETE | `http://<host>:80/api/v1/wifi` | PC -> 车 | 清除 STA Wi-Fi 凭据 |
 | HTTP POST  | `http://<host>:80/api/v1/move` | PC -> 车 | 一次性下发驱动指令 |
-| HTTP GET   | `http://<host>:80/`、`/control`、`/speed`、`/data` | PC -> 车 | v1 手机 H5 兼容接口 |
+| HTTP GET   | `http://<host>:80/wifi`、`/setup` | 用户 -> 车 | 浏览器配网页 |
+| HTTP GET   | `http://<host>:80/`、`/control`、`/speed`、`/data` | 用户 -> 车 | v1 手机 H5 兼容接口 |
 
-默认端口：**80**。默认连的是小车开放热点 `ESP32_Car_Control`
-（`192.168.4.1`）。
+默认端口：**80**。产品网络模型是 **STA 优先 + AP 配网/兜底**：
+
+1. 首次启动或 STA 连接失败时，小车开启开放热点 `ESP32_Car_Control`
+   （`192.168.4.1`）。
+2. 用户打开 `http://192.168.4.1/wifi`，或通过 `POST /api/v1/wifi` 写入
+   2.4 GHz Wi-Fi 的 SSID/密码。
+3. 重启后小车优先加入用户局域网，PC/SDK 通过局域网 IP 或发现协议访问它。
+4. AP 仍作为救援入口保留，方便重新配网和手机 H5 调试。
 
 ## WebSocket 命令（PC -> 车）
 
@@ -82,6 +92,11 @@ WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权
   "charge": "charging",
   "exp": [{"addr": 64}, {"addr": 104}],
   "wifi": "AP+STA",
+  "ip": "192.168.1.42",
+  "ap_ip": "192.168.4.1",
+  "sta_ip": "192.168.1.42",
+  "ssid": "LabWiFi",
+  "sta_configured": true,
   "speed": 200
 }
 ```
@@ -96,6 +111,11 @@ WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权
 | `charge` | string    | `idle` / `detected` / `charging` / `full` / `fault` 之一 |
 | `exp`    | array     | 当前已挂载的扩展口设备 |
 | `wifi`   | string    | `"AP"` / `"STA"` / `"AP+STA"` |
+| `ip`     | string    | SDK 当前应优先连接的 IP；STA 已连时为 STA IP，否则为 AP IP |
+| `ap_ip`  | string    | 小车 AP 侧 IP，通常是 `192.168.4.1` |
+| `sta_ip` | string    | 小车在用户局域网里的 IP；未连接时为空字符串 |
+| `ssid`   | string    | 已保存的 STA SSID；未配网时为空字符串 |
+| `sta_configured` | bool | 是否已保存 STA 凭据 |
 | `speed`  | int       | 当前全局 PWM 上限 |
 
 `exp` 里每条都是 `{"addr": <7 位 I2C 地址>}`——SDK 解析时既接受
@@ -131,6 +151,11 @@ WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权
 
 ## HTTP
 
+### `GET /wifi` / `GET /setup`
+
+返回一个极简浏览器配网页，供用户填写 2.4 GHz Wi-Fi SSID/密码。页面内部调用
+`GET/POST/DELETE /api/v1/wifi`，适合首次配网和现场恢复。
+
 ### `GET /api/v1/state`
 
 和 `state` 事件一样的结构。是 SDK 的 `Chassis.read_state()` 取一次性快
@@ -140,6 +165,42 @@ WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权
 
 ```json
 { "devices": [ {"addr": 64}, {"addr": 104} ] }
+```
+
+### `GET /api/v1/wifi`
+
+```json
+{
+  "wifi": "AP+STA",
+  "ip": "192.168.1.42",
+  "ap_ip": "192.168.4.1",
+  "sta_ip": "192.168.1.42",
+  "ssid": "LabWiFi",
+  "sta_configured": true
+}
+```
+
+### `POST /api/v1/wifi`
+
+```json
+{ "ssid": "LabWiFi", "pass": "password" }
+```
+
+返回：
+
+```json
+{ "ok": true, "restart_required": true }
+```
+
+固件会把凭据保存到 ESP32 NVS。调用成功后重启 ESP32；下一次启动会优先尝试
+STA 入网，8 秒内失败则保留 AP 兜底。
+
+### `DELETE /api/v1/wifi`
+
+清除已保存的 STA 凭据。返回：
+
+```json
+{ "ok": true, "restart_required": true }
 ```
 
 ### `POST /api/v1/move`
@@ -165,8 +226,8 @@ WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权
 
 ## 发现（Discovery）
 
-PC 端往 `255.255.255.255:30303` 广播 `DESKCAR_DISCOVER_V1\r\n`；每台车
-回一份 JSON 宣告：
+PC 端往 `255.255.255.255:30303` 广播 `DESKCAR_DISCOVER_V1\r\n`；每台车回
+一份 JSON 宣告。STA 已连接时 `host` 是局域网 IP；否则是 AP IP：
 
 ```json
 { "host": "192.168.4.1", "port": 80, "name": "deskcar-7c9e", "v": 1 }

@@ -17,6 +17,7 @@ from deskcar.types import (
     ChassisInfo,
     ExpansionDevice,
     StateSnapshot,
+    WifiSnapshot,
 )
 
 __version__ = "0.1.0"
@@ -32,4 +33,5 @@ __all__ = [
     "ProtocolError",
     "StateSnapshot",
     "TransportError",
+    "WifiSnapshot",
 ]

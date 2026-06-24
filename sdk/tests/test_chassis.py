@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from deskcar import Chassis, ExpansionDevice, StateSnapshot
+from deskcar import Chassis, ExpansionDevice, StateSnapshot, WifiSnapshot
 from deskcar.types import ChargeState
 
 
@@ -51,6 +51,30 @@ async def test_read_state_parses_snapshot(chassis: Chassis) -> None:
     assert isinstance(snap, StateSnapshot)
     assert snap.charge is ChargeState.CHARGING
     assert snap.soc == 80
+    assert snap.ip == "192.168.4.1"
+    await chassis.close()
+
+
+async def test_read_wifi_parses_snapshot(chassis: Chassis) -> None:
+    await chassis.connect()
+    wifi = await chassis.read_wifi()
+    assert isinstance(wifi, WifiSnapshot)
+    assert wifi.wifi == "AP+STA"
+    assert wifi.ip == "192.168.1.42"
+    assert wifi.ssid == "LabWiFi"
+    assert wifi.sta_configured is True
+    await chassis.close()
+
+
+async def test_configure_wifi_returns_ok(chassis: Chassis) -> None:
+    await chassis.connect()
+    assert await chassis.configure_wifi("LabWiFi", "secret") is True
+    await chassis.close()
+
+
+async def test_clear_wifi_returns_ok(chassis: Chassis) -> None:
+    await chassis.connect()
+    assert await chassis.clear_wifi() is True
     await chassis.close()
 
 

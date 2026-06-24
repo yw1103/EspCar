@@ -22,6 +22,11 @@ WS_STATE_FULL = {
     "charge": "charging",
     "exp": [{"addr": 64}, {"addr": 104}],
     "wifi": "AP+STA",
+    "ip": "192.168.1.42",
+    "ap_ip": "192.168.4.1",
+    "sta_ip": "192.168.1.42",
+    "ssid": "LabWiFi",
+    "sta_configured": True,
     "speed": 200,
 }
 
@@ -36,6 +41,11 @@ HTTP_STATE_FULL = {
     "charge": "charging",
     "exp": [],
     "wifi": "AP",
+    "ip": "192.168.4.1",
+    "ap_ip": "192.168.4.1",
+    "sta_ip": "",
+    "ssid": "",
+    "sta_configured": False,
     "speed": 200,
 }
 
@@ -48,6 +58,9 @@ def test_ws_state_decodes_into_snapshot() -> None:
     assert snap.soc == 72
     assert snap.charge is ChargeState.CHARGING
     assert snap.wifi == "AP+STA"
+    assert snap.ip == "192.168.1.42"
+    assert snap.ssid == "LabWiFi"
+    assert snap.sta_configured is True
     assert snap.speed == 200
     assert [d.address for d in snap.exp] == [0x40, 0x68]
 

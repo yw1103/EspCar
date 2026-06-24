@@ -57,10 +57,26 @@ class FakeTransport(Transport):
     async def http_get(self, path: str) -> bytes:  # type: ignore[override]
         if path == "/api/v1/state":
             return (b'{"type":"state","ts":1,"v":3.95,"i":-100,"soc":80,'
-                    b'"charge":"charging","wifi":"AP","speed":200,"exp":[]}')
+                    b'"charge":"charging","wifi":"AP","ip":"192.168.4.1",'
+                    b'"ap_ip":"192.168.4.1","sta_ip":"","ssid":"",'
+                    b'"sta_configured":false,"speed":200,"exp":[]}')
         if path == "/api/v1/devices":
             return b'{"devices":[{"addr":64},{"addr":104}]}'
+        if path == "/api/v1/wifi":
+            return (b'{"wifi":"AP+STA","ip":"192.168.1.42",'
+                    b'"ap_ip":"192.168.4.1","sta_ip":"192.168.1.42",'
+                    b'"ssid":"LabWiFi","sta_configured":true}')
         return b"{}"
+
+    async def http_post_json(self, path: str, payload: dict[str, Any]) -> bytes:  # type: ignore[override]
+        if path == "/api/v1/wifi" and payload.get("ssid"):
+            return b'{"ok":true,"restart_required":true}'
+        return b'{"ok":false}'
+
+    async def http_delete(self, path: str) -> bytes:  # type: ignore[override]
+        if path == "/api/v1/wifi":
+            return b'{"ok":true,"restart_required":true}'
+        return b'{"ok":false}'
 
 
 @pytest.fixture

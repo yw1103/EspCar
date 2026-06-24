@@ -91,17 +91,49 @@ class Transport:
     async def http_get(self, path: str) -> bytes:
         """Tiny HTTP GET using stdlib (avoids an aiohttp dependency)."""
 
-        url = f"{self._info.base_url}{path}"
-        # urlopen is blocking; run it in a worker thread to keep callers async.
-        try:
-            return await asyncio.to_thread(self._sync_http_get, url)
-        except OSError as exc:
-            raise TransportError(f"HTTP GET {url} failed: {exc}") from exc
+        return await self._http_request("GET", path)
 
-    def _sync_http_get(self, url: str) -> bytes:
+    async def http_post_json(self, path: str, payload: dict[str, Any]) -> bytes:
+        return await self._http_request(
+            "POST",
+            path,
+            body=json.dumps(payload).encode("utf-8"),
+            content_type="application/json",
+        )
+
+    async def http_delete(self, path: str) -> bytes:
+        return await self._http_request("DELETE", path)
+
+    async def _http_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: bytes | None = None,
+        content_type: str | None = None,
+    ) -> bytes:
+        url = f"{self._info.base_url}{path}"
+        try:
+            return await asyncio.to_thread(
+                self._sync_http_request, method, url, body, content_type
+            )
+        except OSError as exc:
+            raise TransportError(f"HTTP {method} {url} failed: {exc}") from exc
+
+    def _sync_http_request(
+        self,
+        method: str,
+        url: str,
+        body: bytes | None,
+        content_type: str | None,
+    ) -> bytes:
         from urllib import request as urlrequest
 
-        with urlrequest.urlopen(url, timeout=self._open_timeout) as resp:
+        headers = {}
+        if content_type is not None:
+            headers["Content-Type"] = content_type
+        req = urlrequest.Request(url, data=body, headers=headers, method=method)
+        with urlrequest.urlopen(req, timeout=self._open_timeout) as resp:
             data: bytes = resp.read()
             return data
 
