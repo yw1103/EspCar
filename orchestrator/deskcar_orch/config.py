@@ -20,6 +20,9 @@ class CameraConfig:
     height: int = 720
     fps: int = 30
     flip_vertical: bool = False
+    # External USB cameras often need a few seconds before read() succeeds.
+    warmup_timeout_s: float = 15.0
+    warmup_min_frames: int = 3
 
 
 @dataclass(frozen=True)

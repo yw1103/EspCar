@@ -36,6 +36,7 @@ class ArUcoTracker:
         "DICT_5X5_50": "DICT_5X5_50",
         "DICT_6X6_50": "DICT_6X6_50",
         "DICT_ARUCO_ORIGINAL": "DICT_ARUCO_ORIGINAL",
+        "DICT_APRILTAG_36h11": "DICT_APRILTAG_36h11",
     }
 
     def __init__(

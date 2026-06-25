@@ -7,14 +7,19 @@ camera:
   height: 720
   fps: 30
   flip_vertical: false
+  # External USB cameras: wait for consecutive good frames before driving.
+  warmup_timeout_s: 20.0
+  warmup_min_frames: 5
 
 vision:
-  aruco_dict: DICT_4X4_50         # car-top marker
-  car_marker_id: 0
-  car_marker_size_mm: 32.0
-  dock_tag_family: tag36h11       # charging-dock AprilTag
-  dock_tag_id: 0
-  dock_tag_size_mm: 60.0
+  # Car-top marker (AprilTag 36h11, 5 cm square, ID 3).
+  aruco_dict: DICT_APRILTAG_36h11
+  car_marker_id: 3
+  car_marker_size_mm: 50.0
+  # Charging-dock marker (AprilTag 36h11, 5 cm square, ID 2).
+  dock_tag_family: tag36h11
+  dock_tag_id: 2
+  dock_tag_size_mm: 50.0
   obstacle_min_area_px: 1500
   obstacle_history: 8
 

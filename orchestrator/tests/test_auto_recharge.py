@@ -225,7 +225,11 @@ async def test_auto_recharge_full_cycle() -> None:
         cfg, tracker=tracker, dock_det=dock_det, force_dock=True
     )
 
-    ws_car = WsCar(chassis)
+    ws_car = WsCar(
+        chassis,
+        max_linear_mps=cfg.servo.max_linear_mps,
+        max_angular_rps=cfg.servo.max_angular_rps,
+    )
     runner = asyncio.create_task(orch._loop(ws_car, _FakeCamera()))
     try:
         # Phase 1: dock not visible -> SEEK_DOCK drives search motions.
@@ -287,7 +291,16 @@ async def test_seek_to_align_transition_when_dock_appears() -> None:
         cfg, tracker=tracker, dock_det=dock_det, force_dock=True
     )
 
-    runner = asyncio.create_task(orch._loop(WsCar(chassis), _FakeCamera()))
+    runner = asyncio.create_task(
+        orch._loop(
+            WsCar(
+                chassis,
+                max_linear_mps=cfg.servo.max_linear_mps,
+                max_angular_rps=cfg.servo.max_angular_rps,
+            ),
+            _FakeCamera(),
+        )
+    )
     try:
         await _wait_for(orch, OrchChargeState.SEEK_DOCK, timeout=0.5)
         dock_visible["v"] = True
