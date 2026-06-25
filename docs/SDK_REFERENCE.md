@@ -88,6 +88,9 @@ async for ev in car.events():
 `events()` 是一个永不结束的异步迭代器，可安全取消：WS 断了之后迭代结束，
 下一次 `connect()` 会开新的流。
 
+`connect()` 会自动启动后台 reader，持续消费固件广播，防止只发命令不读事件时把
+ESP32 的 TCP 窗口堵满。`events()` 只是把 SDK 内部已接收的帧再交给上层。
+
 SDK **不**做半帧阻塞；底层 transport 会自己拼 WS 消息。
 
 ---

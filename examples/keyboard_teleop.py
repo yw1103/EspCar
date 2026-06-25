@@ -91,9 +91,6 @@ async def _run(host: str | None, speed: int) -> int:
 
     print(f"connecting to {car.info.base_url} (PWM cap = {speed})")
     await car.connect()
-    # The firmware broadcasts state frames at 5 Hz.  Teleop sends commands
-    # but does not display telemetry, so drain inbound frames in the background.
-    drain_task = car.start_event_drain()
     await car.set_speed_cap(speed)
     print("controls: w/a/s/d or arrows = drive, space = stop, q = quit")
     try:
@@ -112,9 +109,6 @@ async def _run(host: str | None, speed: int) -> int:
             await car.drive(left=l, right=r)
         await car.stop()
     finally:
-        drain_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await drain_task
         with contextlib.suppress(Exception):
             await car.close()
     return 0

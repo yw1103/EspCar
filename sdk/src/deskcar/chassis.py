@@ -81,17 +81,16 @@ class Chassis:
         await self._transport.close()
 
     def start_event_drain(self) -> asyncio.Task[None]:
-        """Discard inbound WS frames in the background.
+        """Compatibility no-op for old callers.
 
-        Call this when you send commands but do not consume :meth:`events`.
-        Otherwise the car broadcasts state at 5 Hz and the TCP window can fill,
-        blocking the firmware loop and starving motor updates.
+        Since SDK v2, :meth:`connect` starts a transport-owned reader that
+        always drains the car's 5 Hz broadcasts.  Older examples used this
+        method explicitly; returning an idle task keeps that code harmless.
         """
-        async def _drain() -> None:
-            async for _ in self.events():
-                pass
+        async def _idle() -> None:
+            await asyncio.Event().wait()
 
-        return asyncio.create_task(_drain())
+        return asyncio.create_task(_idle())
 
     # ---- reactive control -------------------------------------------------
 

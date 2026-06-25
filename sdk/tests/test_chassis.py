@@ -98,9 +98,8 @@ async def test_events_yields_snapshot_then_raw(chassis: Chassis) -> None:
     await chassis.close()
 
 
-async def test_start_event_drain_consumes_background_frames(chassis: Chassis) -> None:
+async def test_connect_auto_drains_background_frames(chassis: Chassis) -> None:
     await chassis.connect()
-    drain = chassis.start_event_drain()
     try:
         chassis.feed(
             {"type": "state", "ts": 1, "v": 3.9, "i": 0, "soc": 50, "charge": "idle"}
@@ -111,6 +110,16 @@ async def test_start_event_drain_consumes_background_frames(chassis: Chassis) ->
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         assert chassis._transport.inbox.empty()
+    finally:
+        await chassis.close()
+
+
+async def test_start_event_drain_is_backwards_compatible_noop(chassis: Chassis) -> None:
+    await chassis.connect()
+    drain = chassis.start_event_drain()
+    try:
+        await asyncio.sleep(0)
+        assert not drain.done()
     finally:
         drain.cancel()
         with pytest.raises(asyncio.CancelledError):

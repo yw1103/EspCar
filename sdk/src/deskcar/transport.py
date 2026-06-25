@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from typing import Any
 
 from websockets.asyncio.client import ClientConnection, connect
@@ -41,7 +41,8 @@ class Transport:
         self._info = info
         self._ws: ClientConnection | None = None
         self._open_timeout = open_timeout
-        self._event_handlers: list[Callable[[dict[str, Any]], asyncio.Future[None] | None]] = []
+        self._reader_task: asyncio.Task[None] | None = None
+        self._incoming: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=128)
 
     @property
     def info(self) -> ChassisInfo:
@@ -63,6 +64,7 @@ class Transport:
                 open_timeout=self._open_timeout,
                 max_size=2**20,
             )
+            self._start_reader()
         except (OSError, WebSocketException) as exc:
             raise TransportError(f"failed to open {self._info.ws_url}: {exc}") from exc
 
@@ -70,6 +72,7 @@ class Transport:
         if self._ws is None:
             return
         try:
+            await self._stop_reader()
             await self._ws.close()
         except Exception:
             _LOG.debug("error closing websocket", exc_info=True)
@@ -138,7 +141,33 @@ class Transport:
             return data
 
     async def events(self) -> AsyncIterator[dict[str, Any]]:
-        """Yield raw event payloads forever; cancel-safe."""
+        """Yield raw event payloads from the SDK-owned WS reader.
+
+        The reader starts in :meth:`open` and continuously drains the car's
+        5 Hz state broadcasts even when no caller is iterating here.  This
+        keeps command-only clients from filling the TCP window and starving
+        firmware motor updates.
+        """
+        self._require_ws()
+        while True:
+            yield await self._incoming.get()
+
+    def _start_reader(self) -> None:
+        if self._reader_task is None or self._reader_task.done():
+            self._reader_task = asyncio.create_task(self._reader_loop())
+
+    async def _stop_reader(self) -> None:
+        if self._reader_task is None:
+            return
+        self._reader_task.cancel()
+        try:
+            await self._reader_task
+        except asyncio.CancelledError:
+            pass
+        finally:
+            self._reader_task = None
+
+    async def _reader_loop(self) -> None:
         ws = self._require_ws()
         while True:
             try:
@@ -151,5 +180,14 @@ class Transport:
             try:
                 payload = json.loads(raw)
             except json.JSONDecodeError as exc:
-                raise ProtocolError(f"bad JSON from car: {raw!r}") from exc
-            yield payload
+                _LOG.warning("bad JSON from car: %r", raw, exc_info=exc)
+                continue
+            self._push_incoming(payload)
+
+    def _push_incoming(self, payload: dict[str, Any]) -> None:
+        if self._incoming.full():
+            try:
+                self._incoming.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        self._incoming.put_nowait(payload)

@@ -42,7 +42,7 @@ from deskcar import Chassis, StateSnapshot
 
 async def main() -> None:
     car = await Chassis.discover_first()       # UDP 局域网扫描
-    await car.connect()                        # 打开 WS + HTTP
+    await car.connect()                        # 打开 WS + HTTP，并自动排空 state 广播
 
     # 响应式控制：每个轮子带符号的 PWM，范围 [-255, 255]
     await car.drive(left=120, right=120)
@@ -85,6 +85,9 @@ asyncio.run(main())
 
 SDK 本身**不**做路径规划、不做自动回冲、不闭合控制环——这些都在 PC 端的
 `orchestrator/` 包里，它订阅同一份事件流，发送 `drive` / `stop` 这种响应式命令。
+
+`connect()` 会自动启动后台 WS reader，持续读取固件约 5 Hz 的 state 广播。只发
+`drive` / `stop`、不消费 `events()` 的脚本也不会堵住 ESP32 的网络栈。
 
 ## 开发
 

@@ -48,6 +48,7 @@ class FakeTransport(Transport):
 
     async def open(self) -> None:  # type: ignore[override]
         self._ws = _FakeWebSocket(self.inbox, self.sent)  # type: ignore[assignment]
+        self._start_reader()
 
     def feed(self, payload: dict[str, Any] | bytes) -> None:
         if isinstance(payload, dict):
