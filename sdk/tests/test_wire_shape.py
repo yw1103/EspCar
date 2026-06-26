@@ -20,7 +20,7 @@ WS_STATE_FULL = {
     "i": -100.5,
     "soc": 72,
     "charge": "charging",
-    "exp": [{"addr": 64}, {"addr": 104}],
+    "exp": [{"addr": 104}, {"addr": 60}],
     "wifi": "AP+STA",
     "ip": "192.168.1.42",
     "ap_ip": "192.168.4.1",
@@ -62,7 +62,7 @@ def test_ws_state_decodes_into_snapshot() -> None:
     assert snap.ssid == "LabWiFi"
     assert snap.sta_configured is True
     assert snap.speed == 200
-    assert [d.address for d in snap.exp] == [0x40, 0x68]
+    assert [d.address for d in snap.exp] == [0x68, 0x3C]
 
 
 def test_http_state_decodes_into_snapshot() -> None:
@@ -89,6 +89,6 @@ def test_ws_state_rejects_missing_required_ts() -> None:
 
 # ---- /api/v1/devices shape ----------------------------------------
 def test_devices_list_decodes_into_expansion_devices() -> None:
-    payload = {"devices": [{"addr": 0x40}, {"addr": 0x68}, {"addr": 0x3C}]}
+    payload = {"devices": [{"addr": 0x68}, {"addr": 0x3C}]}
     devices = [ExpansionDevice(address=int(d["addr"])) for d in payload["devices"]]
-    assert [d.address for d in devices] == [0x40, 0x68, 0x3C]
+    assert [d.address for d in devices] == [0x68, 0x3C]

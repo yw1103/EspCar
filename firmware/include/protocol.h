@@ -17,8 +17,8 @@
  // ---- events (car -> PC) ---------------------------------------------
  // {"type":"state", "ts":ms, "v":V, "i":mA, "soc":%, "charge":"charging|...", "exp":[...]}
  // {"type":"encoder", "left":c, "right":c, "dt":ms}
- // {"type":"device_attached","address":0x40}
- // {"type":"device_detached","address":0x40}
+ // {"type":"device_attached","address":0x68}
+ // {"type":"device_detached","address":0x68}
  // {"type":"error","msg":"..."}
 
  } // namespace deskcar

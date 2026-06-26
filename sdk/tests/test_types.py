@@ -32,7 +32,7 @@ def test_state_snapshot_parses_real_wire_payload() -> None:
         "charge": "charging",
         "wifi": "AP+STA",
         "speed": 200,
-        "exp": [{"address": 64}, {"address": 104}],
+        "exp": [{"address": 104}, {"address": 60}],
     }
     snap = StateSnapshot.model_validate(raw)
     assert snap.ts == 12_345
@@ -42,7 +42,7 @@ def test_state_snapshot_parses_real_wire_payload() -> None:
     assert snap.charge is ChargeState.CHARGING
     assert snap.wifi == "AP+STA"
     assert snap.speed == 200
-    assert [d.address for d in snap.exp] == [0x40, 0x68]
+    assert [d.address for d in snap.exp] == [0x68, 0x3C]
 
 
 def test_state_snapshot_rejects_bogus_charge() -> None:
@@ -78,7 +78,7 @@ def test_chassis_info_urls() -> None:
 
 
 def test_expansion_device_frozen() -> None:
-    dev = ExpansionDevice(address=0x40)
+    dev = ExpansionDevice(address=0x68)
     with pytest.raises(ValidationError):
         ExpansionDevice(address=128)  # 7-bit address bound
     with pytest.raises((ValidationError, Exception)):

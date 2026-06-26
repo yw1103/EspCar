@@ -131,7 +131,7 @@ class StateSnapshot(BaseModel):
     charge: ChargeState = ChargeState.IDLE
     wifi: str | None = None              # "AP" / "STA" / "AP+STA"
     speed: int | None = None             # 0..255
-    exp: list[ExpansionDevice] = []      # I2C 设备
+    exp: list[ExpansionDevice] = []      # 磁吸扩展口 I2C 设备，不含板载 INA219
 ```
 
 未知字段会被默默丢掉（`extra="ignore"`），所以新固件加字段不会搞坏旧
@@ -142,11 +142,12 @@ SDK。
 ## `ExpansionDevice`
 
 ```python
-ExpansionDevice(address=0x40)
+ExpansionDevice(address=0x68)
 ```
 
 * `address` 是 7 位 I2C 地址（`0..0x7F`）。
-* 固件发出的是 `{"addr": 64}`；这个模型也接受 `"address"` 作为同义
+* 板载 INA219 会被固件从扩展扫描结果中过滤掉，`exp` 只表示开发者外接模块。
+* 固件发出的是 `{"addr": 104}`；这个模型也接受 `"address"` 作为同义
   词。内部都会归一化到 `address`。
 
 ---

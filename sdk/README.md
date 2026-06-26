@@ -76,7 +76,7 @@ asyncio.run(main())
 | `Chassis.drive(left, right)`       | 每个轮子的 PWM，范围 -255..255 |
 | `Chassis.stop()`                   | 硬刹车 |
 | `Chassis.set_speed_cap(value)`     | 全局 PWM 上限 0..255（固件会持久化） |
-| `Chassis.scan_expansion()`         | 返回磁吸扩展口上的 I2C 设备 |
+| `Chassis.scan_expansion()`         | 返回磁吸扩展口上的 I2C 设备，不含板载 INA219 |
 | `Chassis.read_state()`             | 一次性读取遥测快照 |
 | `Chassis.read_wifi()`              | 读取当前 AP/STA/IP/SSID 状态 |
 | `Chassis.configure_wifi(ssid, password)` | 保存 STA Wi-Fi 凭据，重启后优先入网 |

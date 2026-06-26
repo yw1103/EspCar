@@ -39,7 +39,7 @@ async def test_set_speed_cap_bounds(chassis: Chassis) -> None:
 async def test_scan_expansion_returns_typed_devices(chassis: Chassis) -> None:
     await chassis.connect()
     devices = await chassis.scan_expansion()
-    assert devices == [ExpansionDevice(address=0x40), ExpansionDevice(address=0x68)]
+    assert devices == [ExpansionDevice(address=0x68), ExpansionDevice(address=0x3C)]
     sent = _sent_payloads(chassis)
     assert sent == [{"type": "scan_expansion"}]
     await chassis.close()

@@ -62,7 +62,7 @@ class FakeTransport(Transport):
                     b'"ap_ip":"192.168.4.1","sta_ip":"","ssid":"",'
                     b'"sta_configured":false,"speed":200,"exp":[]}')
         if path == "/api/v1/devices":
-            return b'{"devices":[{"addr":64},{"addr":104}]}'
+            return b'{"devices":[{"addr":104},{"addr":60}]}'
         if path == "/api/v1/wifi":
             return (b'{"wifi":"AP+STA","ip":"192.168.1.42",'
                     b'"ap_ip":"192.168.4.1","sta_ip":"192.168.1.42",'

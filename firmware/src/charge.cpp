@@ -27,10 +27,12 @@
          uint32_t held_ms = millis() - active_since_ms;
          last = (held_ms > 1500) ? ChargeState::Charging : ChargeState::Detected;
      } else if (
-         last == ChargeState::Charging &&
+         (last == ChargeState::Detected ||
+          last == ChargeState::Charging ||
+          last == ChargeState::Full) &&
          b.sensor_present &&
          b.voltage_v >= CHARGE_FULL_V &&
-         b.current_ma > CHARGE_DETECT_CURRENT_MA
+         b.current_ma <= CHARGE_IDLE_CURRENT_MA
      ) {
          last = ChargeState::Full;
      } else {

@@ -1,4 +1,5 @@
  #include "expansion.h"
+ #include "battery.h"
  #include "config.h"
 
  #include <Arduino.h>
@@ -27,7 +28,9 @@
 
  void expansion_scan() {
      g_device_count = 0;
+     uint8_t ina_addr = battery_ina219_addr();
      for (uint8_t addr = 0x03; addr < 0x78 && g_device_count < EXP_MAX_DEVICES; ++addr) {
+         if (addr == ina_addr) continue;
          Wire.beginTransmission(addr);
          if (Wire.endTransmission() == 0) {
              g_devices[g_device_count++] = {addr, true, millis()};
@@ -50,4 +53,3 @@
  }
 
  } // namespace deskcar
-
