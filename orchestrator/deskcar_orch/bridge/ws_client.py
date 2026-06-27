@@ -7,7 +7,6 @@ the ``deskcar`` package; we do not re-export it.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any, cast
 
@@ -29,13 +28,11 @@ class WsCar:
     def __init__(
         self,
         car: Any,
-        drain_task: asyncio.Task[None] | None = None,
         *,
         max_linear_mps: float = 0.30,
         max_angular_rps: float = 1.6,
     ) -> None:
         self._car = car
-        self._drain_task = drain_task
         self._max_linear_mps = max_linear_mps
         self._max_angular_rps = max_angular_rps
 
@@ -56,7 +53,6 @@ class WsCar:
         await car.set_speed_cap(speed_cap)
         return cls(
             car,
-            drain_task,
             max_linear_mps=max_linear_mps,
             max_angular_rps=max_angular_rps,
         )
