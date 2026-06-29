@@ -50,11 +50,18 @@
  }
 
  uint32_t g_last_state_ms = 0;
+ uint32_t g_last_battery_ms = 0;
  void loop() {
      motor_tick();
      wifi_tick();
+     expansion_tick();
      g_ws.cleanupClients();
      uint32_t now = millis();
+     if (now - g_last_battery_ms > 200) {
+         g_last_battery_ms = now;
+         battery_tick();
+         charge_tick();
+     }
      if (now - g_last_state_ms > 200) {  // 5 Hz state broadcast
          g_last_state_ms = now;
          server_broadcast_state();
@@ -62,7 +69,7 @@
      // Drain expansion hot-plug events into the WS stream.
      ExpansionEvent ev;
      while (expansion_poll_event(ev)) {
-         // Handled by the next broadcast; nothing else to do here.
+         server_broadcast_expansion_event(ev);
      }
  }
 

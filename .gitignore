@@ -22,6 +22,8 @@ htmlcov/
 .pio/
 firmware/.pio/
 firmware/.cache/
+firmware/compile_commands.json
+firmware/.vscode/
 .vscode/.browse.VC.db*
 firmware/src/*.ino
 

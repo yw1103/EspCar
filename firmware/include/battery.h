@@ -12,6 +12,7 @@
  };
 
  void     battery_setup();
+ void     battery_tick();
  BatteryReading battery_read();
  uint8_t  battery_ina219_addr();  // 0 when INA219 is not present
  uint8_t  battery_estimate_soc(float voltage_v);  // 0-100

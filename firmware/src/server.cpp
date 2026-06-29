@@ -70,7 +70,7 @@
      } else if (!strcmp(cmd, "stop")) {
          motor_stop();
      } else if (!strcmp(cmd, "scan_expansion")) {
-         expansion_scan();
+         expansion_request_scan();
      } else if (!strcmp(cmd, "reset")) {
          ESP.restart();
      }
@@ -131,16 +131,15 @@
          req->send(200, "application/json", buf);
      });
 
-    // ---- v2 SDK endpoints ----------------------------------------
-    http.on("/api/v1/state", HTTP_GET, [](AsyncWebServerRequest* req) {
-        JsonDocument doc;
-        add_state_payload(doc);
-        String out;
-        serializeJson(doc, out);
-        req->send(200, "application/json", out);
-    });
+     // ---- v2 SDK endpoints ----------------------------------------
+     http.on("/api/v1/state", HTTP_GET, [](AsyncWebServerRequest* req) {
+         JsonDocument doc;
+         add_state_payload(doc);
+         String out;
+         serializeJson(doc, out);
+         req->send(200, "application/json", out);
+     });
      http.on("/api/v1/devices", HTTP_GET, [](AsyncWebServerRequest* req) {
-         expansion_scan();
          JsonDocument doc;
          JsonArray arr = doc["devices"].to<JsonArray>();
          for (int i = 0; i < expansion_device_count(); ++i) {
@@ -192,5 +191,17 @@
  }
 
  void server_broadcast_state() { broadcast_state(); }
+
+ void server_broadcast_expansion_event(const ExpansionEvent& ev) {
+     if (!g_ws) return;
+     JsonDocument doc;
+     doc["type"] = ev.kind == ExpansionEventKind::Attached
+         ? "device_attached"
+         : "device_detached";
+     doc["address"] = ev.address;
+     String out;
+     serializeJson(doc, out);
+     g_ws->textAll(out);
+ }
 
  } // namespace deskcar

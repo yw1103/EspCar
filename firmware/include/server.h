@@ -1,5 +1,7 @@
  #pragma once
 
+ #include "expansion.h"
+
  #include <ESPAsyncWebServer.h>
 
  namespace deskcar {
@@ -12,5 +14,6 @@
 
  // Periodic WS broadcast of car state. Call from loop() at 5 Hz.
  void server_broadcast_state();
+ void server_broadcast_expansion_event(const ExpansionEvent& ev);
 
  } // namespace deskcar

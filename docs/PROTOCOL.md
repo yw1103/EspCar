@@ -69,8 +69,9 @@ WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权
 { "type": "scan_expansion" }
 ```
 
-让固件立刻对磁吸扩展口做一次 I2C 扫描。结果会在下一次 `state` 事件的
-`exp` 字段里，同时也通过 `GET /api/v1/devices` 暴露。
+请求固件在主循环里对磁吸扩展口做一次 I2C 扫描。结果会在后续 `state` 事件的
+`exp` 字段里，同时也通过 `GET /api/v1/devices` 暴露。I2C 扫描不在 HTTP/WS
+异步回调里执行，避免和 INA219 采样抢占同一条 `Wire` 总线。
 
 ### `reset` — 重启 MCU
 
@@ -174,6 +175,9 @@ WebSocket + HTTP 上说同一套 JSON 协议。本文档就是这份契约的权
 ```json
 { "devices": [ {"addr": 104}, {"addr": 60} ] }
 ```
+
+返回最近一次扩展口扫描缓存。固件会低频自动刷新，也可以先发 `scan_expansion`
+请求下一轮主循环扫描。
 
 ### `GET /api/v1/wifi`
 

@@ -15,7 +15,9 @@
  constexpr int EXP_MAX_DEVICES = 16;
 
  void     expansion_setup();
- void     expansion_scan();            // I2C scan, populates internal list
+ void     expansion_tick();
+ void     expansion_request_scan();
+ void     expansion_scan();            // synchronous I2C scan; call from loop/setup only
  int      expansion_device_count();
  const ExpansionDevice* expansion_devices();
 
@@ -28,4 +30,3 @@
  bool     expansion_poll_event(ExpansionEvent& out);  // returns true if pending
 
  } // namespace deskcar
-

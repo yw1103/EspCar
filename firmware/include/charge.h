@@ -13,6 +13,7 @@
  };
 
  void charge_setup();
+ void charge_tick();
  ChargeState charge_state();
  const char* charge_state_name(ChargeState s);
 

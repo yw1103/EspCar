@@ -131,9 +131,11 @@ namespace deskcar {
      if (pass != nullptr && strlen(pass) >= sizeof(g_cfg.sta_pass)) {
          return false;
      }
+     const char* safe_pass = pass == nullptr ? "" : pass;
      g_prefs.begin("deskcar-wifi", false);
      bool ok = g_prefs.putString("ssid", ssid) > 0;
-     ok = g_prefs.putString("pass", pass == nullptr ? "" : pass) > 0 && ok;
+     size_t pass_len = g_prefs.putString("pass", safe_pass);
+     ok = (pass_len == strlen(safe_pass)) && ok;
      g_prefs.end();
      return ok;
  }
